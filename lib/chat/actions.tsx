@@ -33,16 +33,13 @@ import {
 } from '@/lib/utils'
 import { saveChat } from '@/app/actions'
 import { SpinnerMessage, UserMessage } from '@/components/stocks/message'
-import { Chat, Message, State, IncentiveCategory, Sector } from '@/lib/types'
+import { Chat, Message } from '@/lib/types'
 import { auth } from '@/auth'
 
 import systemPrompt from '@/lib/chat/systemPrompt'
-import { RecommendationItemSchema, RecommendationOptionSchema, requestELISchema } from '@/lib/chat/schema'
-import fetchPrograms from '@/lib/chat/tools/fetchPrograms'
-import fetchIncentives from '@/lib/chat/tools/fetchIncentives'
-import { fetchDSIRE } from '@/lib/chat/tools/fetchPinecone'
+import { RecommendationItemSchema, RecommendationOptionSchema } from '@/lib/chat/schema'
+
 import { kv } from '@vercel/kv'
-import { ChartSkeleton } from '@/components/charts/chart-skeleton'
 import { ChartSavings } from '@/components/charts'
 import { streamText } from 'ai'
 
