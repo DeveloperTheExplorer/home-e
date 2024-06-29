@@ -196,6 +196,8 @@ async function submitUserMessage(content: string) {
           query: requestELISchema
         }),
         generate: async function* ({ query }) {
+
+          // NOTE: check compatibility of query (e.g. zipcode 5 characters)
           yield (
             <BotCard>
               <p>Getting ELI response</p>
