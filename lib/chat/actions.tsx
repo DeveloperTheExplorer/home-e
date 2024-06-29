@@ -38,6 +38,7 @@ import { auth } from '@/auth'
 
 import systemPrompt from '@/lib/chat/systemPrompt'
 import { requestELISchema } from '@/lib/chat/schema'
+import { fetchCoordinates } from '@/lib/chat/tools/fetchGeoData'
 import fetchPrograms from '@/lib/chat/tools/fetchPrograms'
 import fetchIncentives from '@/lib/chat/tools/fetchIncentives'
 import { fetchDSIRE } from '@/lib/chat/tools/fetchPinecone'
@@ -423,6 +424,37 @@ async function submitUserMessage(content: string) {
             <BotCard>
               {/* pass in DSIRE data into UI element */}
               <p>DSIRE data retrieved and analyzed</p>
+            </BotCard>
+          )
+        }
+      },
+      calculateSolar: {
+        description: 'calculates the amount of solar power a user can generate based on their location',
+        parameters: z.object({
+          address: z.string().optional().describe('The address to calculate solar power for'),
+        }),
+        generate: async function* ({ address }) {
+          yield (
+            <BotCard>
+              <p>Calculating solar cost...</p>
+            </BotCard>
+          )
+
+          // Calculate solar cost here
+          let coordinates: any = null;
+          try {
+            const storedData = await getStoredData(['address']);
+            coordinates = await fetchCoordinates(address ?? storedData['address']);
+            console.log('coordinates:', coordinates)
+          } catch (error) {
+            // Handle any errors here
+            console.error('Failed to fetch coordinates:', error);
+          }
+
+          return (
+            <BotCard>
+              {/* pass in solar cost into UI element */}
+              <p></p>
             </BotCard>
           )
         }
