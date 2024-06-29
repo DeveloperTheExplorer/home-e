@@ -91,3 +91,19 @@ export const getMessageFromCode = (resultCode: string) => {
       return 'Logged in!'
   }
 }
+
+export const formatCompactNumber = (value?: unknown, maxDecmials = 2, minDecimals = 2) => {
+  if (typeof value !== 'string' && typeof value !== 'number') {
+    return '-.--';
+  }
+  if (!value || value == 0) {
+    return '0.00';
+  }
+  return Intl.NumberFormat('en-US', {
+    notation: 'compact',
+    maximumFractionDigits: maxDecmials,
+    minimumFractionDigits: minDecimals,
+  })
+    .format(Number(value))
+    .toLowerCase();
+};

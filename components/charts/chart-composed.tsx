@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 
-import { camelCase } from '@/lib/utils';
+import { camelCase, cn } from '@/lib/utils';
 import dayjs from 'dayjs';
 
 import {
@@ -24,6 +24,7 @@ import {
 } from 'recharts';
 import ChartHeader, { ChartHeaderProps } from './chart-header';
 import { CompStatusData } from '@/lib/types';
+import ChartToolTip from './chart-tooltip';
 
 export type LineConfig<T> = Omit<LineProps, 'dataKey' | 'ref'> & {
   dataKey: keyof T | string;
@@ -96,11 +97,6 @@ export interface ChartComposedProps<T> extends CompStatusData {
   tooltipProps?: TooltipProps<any, string>;
 
   children?: React.ReactNode;
-
-  /**
-   * Only for storybook
-   */
-  testMode?: boolean;
 }
 
 const formatDateTick = (formatter?: XAxisProps['tickFormatter']) => (tick: string, index: number) => {
@@ -136,7 +132,6 @@ export function ChartComposed<T extends object>({
   bars,
   lines,
   children,
-  testMode = false,
   ...status
 }: ChartComposedProps<T>) {
   const isLoading = !data || status.isLoading;
@@ -153,12 +148,12 @@ export function ChartComposed<T extends object>({
         ...(bars || []),
       ],
     };
-  }, [data, lines, isLoading]);
+  }, [data, lines, areas, bars, isLoading]);
 
   return (
-    <>
+    <div className={cn('mb-20', containerClassName)}>
       {header && <ChartHeader {...header} />}
-      <ResponsiveContainer width={testMode ? 750 : '100%'} height={testMode ? 500 : '100%'}>
+      <ResponsiveContainer width={'100%'} height={'100%'} className={className}>
         <ComposedChart
           data={memoizedData}
           margin={{
@@ -168,8 +163,8 @@ export function ChartComposed<T extends object>({
           }}
         >
           <defs>
-            {areas?.map(({ dataKey, fill }) => {
-              const fillId = camelCase(dataKey as string);
+            {memoizedAreas?.map(({ dataKey, fill }) => {
+              const fillId = dataKey as string;
 
               return (
                 <linearGradient key={fillId} id={`color-${fillId}`} x1='0' y1='0' x2='0' y2='1'>
@@ -197,20 +192,24 @@ export function ChartComposed<T extends object>({
               }
             }
           />
-          {tooltip && <Tooltip {...tooltipProps} />}
-          {/* {tooltip && <Tooltip content={<ChartToolTip />} {...tooltipProps} />} */}
+          {tooltip && <Tooltip content={<ChartToolTip />} {...tooltipProps} />}
           {legend && <Legend verticalAlign='top' />}
           {refLine && <ReferenceLine y={0} stroke='#000' />}
           {memoizedLines?.map(line => {
             const { dataKey, ...lineProps } = line;
 
-            return <Line {...lineProps} key={dataKey as string} dataKey={dataKey as string} strokeWidth={2} />;
+            return (
+              <Line
+                {...lineProps}
+                key={dataKey as string}
+                dataKey={dataKey as string}
+                strokeWidth={2} />
+            );
           })}
           {memoizedBars?.map(bar => {
             return (
               <Bar
                 key={bar.dataKey as string}
-                stackId='stack'
                 {...bar}
                 maxBarSize={32}
                 dataKey={bar.dataKey as string}
@@ -218,8 +217,7 @@ export function ChartComposed<T extends object>({
             );
           })}
           {memoizedAreas?.map(({ dataKey, ...rest }) => {
-            const id = dataKey as string;
-            const fillId = camelCase(id);
+            const fillId = dataKey as string;
 
             return (
               <Area
@@ -235,6 +233,6 @@ export function ChartComposed<T extends object>({
           {children}
         </ComposedChart>
       </ResponsiveContainer>
-    </>
+    </div>
   );
 }
