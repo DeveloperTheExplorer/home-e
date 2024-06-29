@@ -29,11 +29,11 @@ import {
   formatNumber,
   runAsyncFnWithoutBlocking,
   sleep,
-  nanoid
+  nanoid,
 } from '@/lib/utils'
 import { saveChat } from '@/app/actions'
 import { SpinnerMessage, UserMessage } from '@/components/stocks/message'
-import { Chat, Message } from '@/lib/types'
+import { Chat, Message, State, IncentiveCategory, Sector } from '@/lib/types'
 import { auth } from '@/auth'
 
 import systemPrompt from '@/lib/chat/systemPrompt'
