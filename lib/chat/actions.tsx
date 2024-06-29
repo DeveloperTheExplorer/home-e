@@ -29,11 +29,11 @@ import {
   formatNumber,
   runAsyncFnWithoutBlocking,
   sleep,
-  nanoid
+  nanoid,
 } from '@/lib/utils'
 import { saveChat } from '@/app/actions'
 import { SpinnerMessage, UserMessage } from '@/components/stocks/message'
-import { Chat, Message } from '@/lib/types'
+import { Chat, Message, State, IncentiveCategory, Sector } from '@/lib/types'
 import { auth } from '@/auth'
 
 import systemPrompt from '@/lib/chat/systemPrompt'
@@ -360,9 +360,12 @@ async function submitUserMessage(content: string) {
       queryDSIRE: {
         description: 'query to a vector database of legislation regarding state, federal, and municipal laws from DSIRE',
         parameters: z.object({
-          query: z.string().describe('The query text provided to Pinecone to search for various laws')
+          query: z.string().describe('The query text provided to Pinecone to search for various laws'),
+          state: z.nativeEnum(State).optional().describe('The state to filter the results'),
+          sector: z.nativeEnum(Sector).optional().describe('The sector to filter the results'),
+          category: z.nativeEnum(IncentiveCategory).optional().describe('The category to filter the results')
         }),
-        generate: async function* ({ query }) {
+        generate: async function* ({ query, state, sector, category}) {
           yield (
             <BotCard>
               <p>Getting DSIRE response</p>
@@ -373,7 +376,7 @@ async function submitUserMessage(content: string) {
 
           let matches: any = null;
           try {
-            matches = await fetchDSIRE(query);
+            matches = await fetchDSIRE(query, state, sector, category);
             console.log('matches:', typeof matches, matches)
           } catch (error) {
             // Handle any errors here
