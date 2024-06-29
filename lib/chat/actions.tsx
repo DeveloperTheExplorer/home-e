@@ -36,9 +36,11 @@ import { SpinnerMessage, UserMessage } from '@/components/stocks/message'
 import { Chat, Message } from '@/lib/types'
 import { auth } from '@/auth'
 
+import systemPrompt from '@/lib/chat/systemPrompt'
 import { requestELISchema } from '@/lib/chat/schema'
 import fetchPrograms from '@/lib/chat/tools/fetchPrograms'
 import fetchIncentives from '@/lib/chat/tools/fetchIncentives'
+import { fetchDSIRE } from '@/lib/chat/tools/fetchPinecone'
 
 async function confirmPurchase(symbol: string, price: number, amount: number) {
   'use server'
@@ -133,14 +135,7 @@ async function submitUserMessage(content: string) {
   const result = await streamUI({
     model: openai('gpt-3.5-turbo'),
     initial: <SpinnerMessage />,
-    system: `\
-    You are an expert provided with a large corpus of environmental policies and incentives for homeowners that reduce energy consumption through rebates and tax credits.
-    You and the user can discuss energy programs and incentives that can help homeowners save money.
-
-    If the user requests information on energy programs, call \`retrievePrograms\` to get the information.
-    If the user requests information on clean energy incentives, call \`retrieveIncentives\` to get the information.
-
-    Besides that, you can also chat with users and prompt them for more information if needed.`,
+    system: systemPrompt,
 
     // system: `\
     // You are a stock trading conversation bot and you can help users buy stocks, step by step.
@@ -191,7 +186,7 @@ async function submitUserMessage(content: string) {
     },
     tools: {
       retrievePrograms: {
-        description: 'Retrieves information for homeowners to save money through energy programs ',
+        description: 'retrieves information for homeowners to save money through energy programs ',
         parameters: z.object({
           query: requestELISchema
         }),
@@ -200,7 +195,7 @@ async function submitUserMessage(content: string) {
           // NOTE: check compatibility of query (e.g. zipcode 5 characters)
           yield (
             <BotCard>
-              <p>Getting ELI response</p>
+              <p>Getting programs response</p>
             </BotCard>
           )
 
@@ -250,20 +245,21 @@ async function submitUserMessage(content: string) {
 
           return (
             <BotCard>
-              <p>ELI5 explanation for ...</p>
+              {/* pass in programsData into UI element */}
+              <p>programs Data</p> 
             </BotCard>
           )
         }
       },
       retrieveIncentives: {
-        description: 'Retrieves information for homeowners to make money through energy incentives ',
+        description: 'retrieves information for homeowners to make money through energy incentives ',
         parameters: z.object({
           query: requestELISchema
         }),
         generate: async function* ({ query }) {
           yield (
             <BotCard>
-              <p>Getting ELI response</p>
+              <p>Getting incentive response</p>
             </BotCard>
           )
 
@@ -313,7 +309,142 @@ async function submitUserMessage(content: string) {
 
           return (
             <BotCard>
+              {/* pass in incentives into UI element */}
               <p>Incentives</p>
+            </BotCard>
+          )
+        }
+      },
+      queryDSIRE: {
+        description: 'query to a vector database of legislation regarding state, federal, and municipal laws from DSIRE',
+        parameters: z.object({
+          query: z.string().describe('The query text provided to Pinecone to search for various laws')
+        }),
+        generate: async function* ({ query }) {
+          yield (
+            <BotCard>
+              <p>Getting DSIRE response</p>
+            </BotCard>
+          )
+
+          await sleep(1000)
+
+          let matches: any = null;
+          try {
+            matches = await fetchDSIRE(query);
+            console.log('matches:', typeof matches, matches)
+          } catch (error) {
+            // Handle any errors here
+            console.error('Failed to fetch DSIRE data:', error);
+          }
+
+          const toolCallId = nanoid()
+          const DSIREData = matches['matches'].map(match => match.metadata);
+          // console.log('DSIREData:', DSIREData)
+          // source .env.local
+
+          aiState.done({
+            ...aiState.get(),
+            messages: [
+              ...aiState.get().messages,
+              {
+                id: nanoid(),
+                role: 'assistant',
+                content: [
+                  {
+                    type: 'tool-call',
+                    toolName: 'queryDSIRE',
+                    toolCallId,
+                    args: { query }
+                  }
+                ]
+              },
+              {
+                id: nanoid(),
+                role: 'tool',
+                content: [
+                  {
+                    type: 'tool-result',
+                    toolName: 'queryDSIRE',
+                    toolCallId,
+                    result: DSIREData
+                  }
+                ]
+              }
+            ]
+          })
+
+          return (
+            <BotCard>
+              {/* pass in DSIRE data into UI element */}
+              <p>DSIRE data retrieved and analyzed</p>
+            </BotCard>
+          )
+        }
+      },
+      storeData: {
+        description: 'stores',
+        parameters: z.object({
+          key: z.string().describe('The key to store the data'),
+          value: z.any().describe('The value to store')
+        }),
+        generate: async function* ({ key, value }) {
+          yield (
+            <BotCard>
+              <p>Getting DSIRE response</p>
+            </BotCard>
+          )
+
+          await sleep(1000)
+
+          let matches: any = null;
+          try {
+            matches = await fetchDSIRE(query);
+            console.log('matches:', typeof matches, matches)
+          } catch (error) {
+            // Handle any errors here
+            console.error('Failed to fetch DSIRE data:', error);
+          }
+
+          const toolCallId = nanoid()
+          const DSIREData = matches['matches'].map(match => match.metadata);
+          console.log('DSIREData:', DSIREData)
+
+          aiState.done({
+            ...aiState.get(),
+            messages: [
+              ...aiState.get().messages,
+              {
+                id: nanoid(),
+                role: 'assistant',
+                content: [
+                  {
+                    type: 'tool-call',
+                    toolName: 'queryDSIRE',
+                    toolCallId,
+                    args: { query }
+                  }
+                ]
+              },
+              {
+                id: nanoid(),
+                role: 'tool',
+                content: [
+                  {
+                    type: 'tool-result',
+                    toolName: 'queryDSIRE',
+                    toolCallId,
+                    result: DSIREData
+                  }
+                ]
+              }
+            ]
+          })
+
+          return (
+            <BotCard>
+              {/* pass in DSIRE data into UI element */}
+              <p>DSIRE data retrieved and analyzed</p>
             </BotCard>
           )
         }
@@ -717,6 +848,16 @@ export const getUIStateFromAIState = (aiState: Chat) => {
                 {/* @ts-expect-error */}
                 <Events props={tool.result} />
               </BotCard>
+            ) : tool.toolName === 'retrievePrograms' ? (
+              <BotCard>
+                {/* @ts-expect-error */}
+                <p>programs</p>
+              </BotCard>
+            ) : tool.toolName === 'retrieveIncentives' ? (
+              <BotCard>
+                {/* @ts-expect-error */}
+                <p>incentives</p>
+              </BotCard>
             ) : null
           })
         ) : message.role === 'user' ? (
@@ -727,3 +868,4 @@ export const getUIStateFromAIState = (aiState: Chat) => {
         ) : null
     }))
 }
+

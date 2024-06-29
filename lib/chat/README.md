@@ -1,4 +1,4 @@
-curl https://api.eli.build/programs \
+curl https://api.eli.build/incentives \
   -X POST \
   -H "Content-Type: application/json" \
   -H 'Authorization: Bearer ' \
@@ -9,7 +9,7 @@ curl https://api.eli.build/programs \
           "state": "CO",
           "zipcode": "80012"
         },
-        "household_income": 100000,
+        "household_income": 3050000,
         "household_size": 3,
         "tax_filing_status": "joint",
         "property_type": "single_family",
