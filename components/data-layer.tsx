@@ -71,28 +71,12 @@ export async function MapDataCanvas({ data, month = 6, day = 29, layerIds = ['an
     }, [canvasRef, imgRef, data, month, day, layerIds])
 
     return <>
-        {layerIds.map((layerId) => {
-            return <DataLayer key={layerId} layerId={layerId} showRoofOnly={['annualFlux', 'monthlyFlux', 'hourlyShade'].includes(layerId)} data={data[layerId]} month={month} day={day} />
+        <div className='relative'>
+            {layerIds.map((layerId) => {
+                return <DataLayer key={layerId} layerId={layerId} showRoofOnly={['annualFlux', 'monthlyFlux', 'hourlyShade'].includes(layerId)} data={data[layerId]} month={month} day={day} />
             })
-        }
-        {/* <canvas
-            ref={canvasRef}
-            style={{
-                border: 'solid 1px black',
-            }}
-        ></canvas>
-        <Image
-            ref={imgRef}
-            src={'/blank.png'}
-            // className='invisible'
-            width={100}
-            height={100}
-            alt=""
-            priority={true}
-            style={{
-                display: 'none',
-            }}
-        /> */}
+            }
+        </div>
         <DropdownMenu>
             <DropdownMenuContent>
                 <DropdownMenuGroup>
@@ -158,7 +142,7 @@ async function DataLayer({ layerId, data, showRoofOnly = false, month = 6, day =
         context.drawImage(image, 0, 0)
     }, [canvasRef, imgRef, data, month, day, layerId])
 
-    return <div className='absolute'> 
+    return <div className='absolute top-0 left-0'>
         <canvas
             ref={canvasRef}
             style={{

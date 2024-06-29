@@ -45,6 +45,7 @@ import { fetchDSIRE } from '@/lib/chat/tools/fetchPinecone'
 import { kv } from '@vercel/kv'
 import { MapDataCanvas } from '@/components/data-layer'
 import { DataLayers, LayerId, LayerIdOption } from './tools/fetchGeoData/solar'
+import { SolarStats } from '@/components/solar-stats'
 
 async function confirmPurchase(symbol: string, price: number, amount: number) {
   'use server'
@@ -442,14 +443,14 @@ async function submitUserMessage(content: string) {
             </BotCard>
           )
 
-          let mask;
           const layerIds: LayerId[] = ['rgb', 'annualFlux'];
           let inputTiffs: Record<LayerId, any> = {};
+          let stats;
 
           try {
             const storedData = await getStoredData(['address']);
-            const { dataLayers } = await fetchCoordinates(address ?? storedData['address']);
-
+            const { dataLayers, geoData } = await fetchCoordinates(address ?? storedData['address']);
+            stats = geoData;
             // const allLayers: DataLayers = {
             //   dsm: await downloadGeoTIFF(dataLayers.dsmUrl),
             //   rgb: await downloadGeoTIFF(dataLayers.rgbUrl),
@@ -501,20 +502,58 @@ async function submitUserMessage(content: string) {
             await Promise.all(layerIds.map(async (layerId) => {
               inputTiffs[layerId] = await getLayers[layerId]();
             }));
-            // for (const layerId of Object.values(LayerIdOption)) {
-            //   inputTiffs[layerId] = getLayers[layerId]();
-            // }
 
           } catch (error) {
             // Handle any errors here
             console.error('Failed to fetch coordinates:', error);
           }
 
+          const toolCallId = nanoid()
+
+          aiState.done({
+            ...aiState.get(),
+            messages: [
+              ...aiState.get().messages,
+              {
+                id: nanoid(),
+                role: 'assistant',
+                content: [
+                  {
+                    type: 'tool-call',
+                    toolName: 'retrievePrograms',
+                    toolCallId,
+                    args: { address }
+                  }
+                ]
+              },
+              {
+                id: nanoid(),
+                role: 'tool',
+                content: [
+                  {
+                    type: 'tool-result',
+                    toolName: 'retrievePrograms',
+                    toolCallId,
+                    result: { layerIds, inputTiffs }
+                  }
+                ]
+              }
+            ]
+          })
+
           return (
             // TODO use list dropdown to select layer
             <BotCard>
               {/* pass in solar cost into UI element */}
-              <MapDataCanvas mask={mask} data={inputTiffs} layerIds={layerIds} />
+              <SolarStats solarData={{
+                maxSunshineHoursPerYear: stats["solarPotential"]["maxSunshineHoursPerYear"],
+                maxArrayAreaMeters2: stats["solarPotential"]["maxArrayAreaMeters2"],
+              }}
+                panelData={{
+                  panelsCount: stats["solarPotential"]["maxArrayPanelsCount"],
+                  panelCapacityWatts: stats["solarPotential"]["panelCapacityWatts"]
+                }} />
+              <MapDataCanvas data={inputTiffs} layerIds={layerIds} />
             </BotCard>
           )
         }
