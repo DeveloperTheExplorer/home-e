@@ -68,6 +68,8 @@ export const ChartSavings: React.FC<ChartSavingsProps> = ({ props: { options, re
       const currentSolution = recommendationItem;
       const selectedOptions: number[] = getSelectedOptions(selectedIndex);
 
+      console.log('currentSolution :>> ', currentSolution);
+
       return {
         selectedOptions,
         consumptionData: currentSolution.consumptionData,
@@ -116,7 +118,7 @@ export const ChartSavings: React.FC<ChartSavingsProps> = ({ props: { options, re
       const newSelectedOptionIndexes = getSelectedOptions(newSelectedIndex);
 
       const newSelectedOptions = newSelectedOptionIndexes.map(i => options[i]);
-      const prompt = `Update my chart data so I can see what happens when I wanted to make the following changes: ${newSelectedOptions.map(o => `${o.title}\n${o.description}`).join(',\n\n')}`
+      const prompt = `Update my chart data so I can see what happens when I wanted to make the following changes: ${newSelectedOptions.map(o => `${o.title}\n${o.description}`).join(' AND ')}`
       const result = await submitUserMessage(prompt, false);
 
       setRecommendationItem(result);
