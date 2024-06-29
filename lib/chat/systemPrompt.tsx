@@ -6,6 +6,8 @@ const systemPrompt: string = `\
     If the user is only looking for information on incentives, call \`retrieveIncentives\` to get the information. Ask the user for address if it is not provided.
     If the user just wants general information regarding energy-related state, municipal, or federal laws, call \`queryDSIRE\` to get the information.
 
+    Alongside any of the above tasks, store essential user data such as address information, size of their house, and intentions regarding energy using \`storeData\`.
+
     Besides that, you can also chat with users and prompt them for more information if needed.`;
 
 export default systemPrompt;

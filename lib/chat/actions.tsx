@@ -41,6 +41,7 @@ import { requestELISchema } from '@/lib/chat/schema'
 import fetchPrograms from '@/lib/chat/tools/fetchPrograms'
 import fetchIncentives from '@/lib/chat/tools/fetchIncentives'
 import { fetchDSIRE } from '@/lib/chat/tools/fetchPinecone'
+import { kv } from '@vercel/kv'
 
 async function confirmPurchase(symbol: string, price: number, amount: number) {
   'use server'
@@ -383,68 +384,33 @@ async function submitUserMessage(content: string) {
         }
       },
       storeData: {
-        description: 'stores',
+        description: 'stores key value pair for longterm memory',
         parameters: z.object({
           key: z.string().describe('The key to store the data'),
           value: z.any().describe('The value to store')
         }),
         generate: async function* ({ key, value }) {
-          yield (
-            <BotCard>
-              <p>Getting DSIRE response</p>
-            </BotCard>
-          )
+          yield `Storing ${key} as ${value}...`;
 
           await sleep(1000)
-
-          let matches: any = null;
+          
           try {
-            matches = await fetchDSIRE(query);
-            console.log('matches:', typeof matches, matches)
+            await kv.set(key, value, { ex: 100, nx: true });
           } catch (error) {
-            // Handle any errors here
-            console.error('Failed to fetch DSIRE data:', error);
+              console.error('Failed to set value:', error);
           }
-
-          const toolCallId = nanoid()
-          const DSIREData = matches['matches'].map(match => match.metadata);
-          console.log('DSIREData:', DSIREData)
-
-          aiState.done({
-            ...aiState.get(),
-            messages: [
-              ...aiState.get().messages,
-              {
-                id: nanoid(),
-                role: 'assistant',
-                content: [
-                  {
-                    type: 'tool-call',
-                    toolName: 'queryDSIRE',
-                    toolCallId,
-                    args: { query }
-                  }
-                ]
-              },
-              {
-                id: nanoid(),
-                role: 'tool',
-                content: [
-                  {
-                    type: 'tool-result',
-                    toolName: 'queryDSIRE',
-                    toolCallId,
-                    result: DSIREData
-                  }
-                ]
-              }
-            ]
-          })
+          
+          try {
+            const getExample = await kv.get(key);
+            console.log('got', getExample);
+          } catch (error) {
+            // Handle errors
+          }
 
           return (
             <BotCard>
               {/* pass in DSIRE data into UI element */}
-              <p>DSIRE data retrieved and analyzed</p>
+              <p>Stored {key} as {value}</p>
             </BotCard>
           )
         }
