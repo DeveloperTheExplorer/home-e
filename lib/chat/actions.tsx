@@ -386,8 +386,33 @@ async function submitUserMessage(content: string) {
       storeData: {
         description: 'stores key value pair for longterm memory',
         parameters: z.object({
-          key: z.string().describe('The key to store the data'),
-          value: z.any().describe('The value to store')
+          key: z.enum([
+            'address',
+            'household_income',
+            'household_size',
+            'tax_filing_status',
+            'property_type',
+            'upgrade_measures',
+            'metadata'
+          ]).describe('The key to store the data'),
+          value: z.union([
+            z.object({
+              line1: z.string().optional(),
+              line2: z.string().optional(),
+              city: z.string().optional(),
+              state: z.string().optional(),
+              zipcode: z.string() // Kept zipcode as required
+            }),
+            z.number(),
+            z.string(),
+            z.array(z.object({
+              measure: z.string(),
+              estimated_min_cost: z.number()
+            })),
+            z.object({
+              external_id: z.string().optional() // Assuming you want this optional as well
+            })
+          ]).describe('The value to store')
         }),
         generate: async function* ({ key, value }) {
           yield `Storing ${key} as ${value}...`;
@@ -401,8 +426,8 @@ async function submitUserMessage(content: string) {
           }
           
           try {
-            const getExample = await kv.get(key);
-            console.log('got', getExample);
+            const storedValue = await kv.get(key);
+            console.log('Successfully stored value:', storedValue);
           } catch (error) {
             // Handle errors
           }
@@ -410,7 +435,7 @@ async function submitUserMessage(content: string) {
           return (
             <BotCard>
               {/* pass in DSIRE data into UI element */}
-              <p>Stored {key} as {value}</p>
+              <p>Stored {key} according to input</p>
             </BotCard>
           )
         }
