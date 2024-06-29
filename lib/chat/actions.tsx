@@ -113,6 +113,30 @@ async function confirmPurchase(symbol: string, price: number, amount: number) {
   }
 }
 
+async function getStoredData(keys: string[]) {
+  const storedData: Record<string, any> = {}
+  for (const key of keys) {
+    const value = await kv.get(key)
+    if (value !== null) {
+      storedData[key] = value
+    }
+  }
+  return storedData
+}
+
+// Helper function to populate unfilled keys
+function populateUnfilledKeys(query: z.infer<typeof requestELISchema>, storedData: Record<string, any>) {
+  const populatedQuery = { ...query }
+
+  for (const [key, schema] of Object.entries(requestELISchema.shape)) {
+    if (populatedQuery[key] === undefined && storedData[key] !== undefined) {
+      populatedQuery[key] = storedData[key]
+    }
+  }
+
+  return populatedQuery
+}
+
 async function submitUserMessage(content: string) {
   'use server'
 
@@ -202,9 +226,26 @@ async function submitUserMessage(content: string) {
 
           await sleep(1000)
 
+          const storedData = await getStoredData([
+            'address',
+            'property_type',
+            'household_income',
+            'household_size',
+            'tax_filing_status',
+            'utility_customer_requirements',
+            'upgrade_measures',
+            'metadata'
+          ])
+
+          console.log(storedData)
+          const populatedQuery = populateUnfilledKeys(query, storedData)
+
+          console.log(populatedQuery)
+
+
           let programsData: any = null;
           try {
-            programsData = await fetchPrograms(query);
+            programsData = await fetchPrograms(populatedQuery);
             // Use programsData here
           } catch (error) {
             // Handle any errors here
