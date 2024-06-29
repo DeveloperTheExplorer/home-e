@@ -116,8 +116,6 @@ async function DataLayer({ layerId, data, showRoofOnly = false, month = 6, day =
     const imgRef = useRef<HTMLImageElement>(null)
 
     useEffect(() => {
-
-        console.log(data)
         const renderLayer = async (layerId: LayerId) => {
             try {
                 const layer = await getLayer(canvasRef.current!, layerId, data);
@@ -160,8 +158,7 @@ async function DataLayer({ layerId, data, showRoofOnly = false, month = 6, day =
         context.drawImage(image, 0, 0)
     }, [canvasRef, imgRef, data, month, day, layerId])
 
-    return <div> 
-        {/* className="absolute"> */}
+    return <div className='absolute'> 
         <canvas
             ref={canvasRef}
             style={{
@@ -171,7 +168,6 @@ async function DataLayer({ layerId, data, showRoofOnly = false, month = 6, day =
         <Image
             ref={imgRef}
             src={'/blank.png'}
-            // className='invisible'
             width={100}
             height={100}
             alt=""
