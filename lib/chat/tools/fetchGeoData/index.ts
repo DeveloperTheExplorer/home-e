@@ -1,6 +1,7 @@
 import * as geotiff from 'geotiff'
 import * as geokeysToProj4 from 'geotiff-geokeys-to-proj4'
 import proj4 from 'proj4'
+import { kv } from '@vercel/kv'
 
 export interface Bounds {
   north: number
@@ -124,6 +125,13 @@ export async function fetchGeoDataLayers(
   }
 }
 export async function downloadGeoTIFF(url: string): Promise<GeoTiff> {
+    // try {
+    //     const cached: string | null = await kv.get(url)
+    //     console.log('cached', cached)
+    //     if (cached) {
+    //         return JSON.parse(cached)
+    //     }
+    // } catch (error) {}
   const API_KEY = process.env.GOOGLE_API_KEY
 
   const solarUrl = url.includes('solar.googleapis.com')
@@ -157,20 +165,13 @@ export async function downloadGeoTIFF(url: string): Promise<GeoTiff> {
     y: box[3] * projObj.coordinatesConversionParameters.y
   })
 
-  return {
-    // Width and height of the data layer image in pixels.
-    // Used to know the row and column since Javascript
-    // stores the values as flat arrays.
+  const result = {
     width: rasters.width,
     height: rasters.height,
-    // Each raster reprents the pixel values of each band.
-    // We convert them from `geotiff.TypedArray`s into plain
-    // Javascript arrays to make them easier to process.
     // @ts-ignore
     rasters: [...Array(rasters.length).keys()].map(i =>
       Array.from(rasters[i] as geotiff.TypedArray)
     ),
-    // The bounding box as a lat/lon rectangle.
     bounds: {
       north: ne.y,
       south: sw.y,
@@ -178,6 +179,10 @@ export async function downloadGeoTIFF(url: string): Promise<GeoTiff> {
       west: sw.x
     }
   }
+
+//   await kv.set(url, JSON.stringify(result), { ex: 100, nx: true })
+
+  return result
 }
 // export async function downloadDataLayers(layer: DataLayersResponse) {
 

@@ -227,8 +227,6 @@ async function submitUserMessage(content: string) {
             </BotCard>
           )
 
-          await sleep(1000)
-
           const storedData = await getStoredData([
             'address',
             'property_type',
@@ -443,7 +441,7 @@ async function submitUserMessage(content: string) {
             </BotCard>
           )
 
-          const layerIds: LayerId[] = ['rgb', 'annualFlux'];
+          const layerIds: LayerId[] = ['rgb', 'annualFlux']; // 'hourlyShade'
           let inputTiffs: Record<LayerId, any> = {};
           let stats;
 
@@ -546,12 +544,12 @@ async function submitUserMessage(content: string) {
             <BotCard>
               {/* pass in solar cost into UI element */}
               <SolarStats solarData={{
-                maxSunshineHoursPerYear: stats["solarPotential"]["maxSunshineHoursPerYear"],
-                maxArrayAreaMeters2: stats["solarPotential"]["maxArrayAreaMeters2"],
+                maxSunshineHoursPerYear: stats["solarPotential"]["maxSunshineHoursPerYear"] ?? 0,
+                maxArrayAreaMeters2: stats["solarPotential"]["maxArrayAreaMeters2"] ?? 0,
               }}
                 panelData={{
-                  panelsCount: stats["solarPotential"]["maxArrayPanelsCount"],
-                  panelCapacityWatts: stats["solarPotential"]["panelCapacityWatts"]
+                  panelsCount: stats["solarPotential"]["maxArrayPanelsCount"] ?? 0,
+                  panelCapacityWatts: stats["solarPotential"]["panelCapacityWatts"] ?? 0
                 }} />
               <MapDataCanvas data={inputTiffs} layerIds={layerIds} />
             </BotCard>

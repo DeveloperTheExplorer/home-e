@@ -12,7 +12,8 @@ export interface Layer {
   render: (
     showRoofOnly: boolean,
     month?: number,
-    day?: number
+    day?: number,
+    hour?: number,
   ) => HTMLCanvasElement[]
   bounds: Bounds
   palette?: Palette
@@ -147,23 +148,27 @@ export async function getLayer(
           min: 'Shade',
           max: 'Sun'
         },
-        render: (showRoofOnly, month, day) =>
+        render: (showRoofOnly, month, day, hour) => {
           // @ts-ignore
-          [...Array(24).keys()].map(hour =>
+          //   [...Array(24).keys()].map(hour =>
+          console.log('Hourly shade data: ', [months[hour ?? 0 + 1]], hour)
+          return [
             renderPalette(canvas, {
-              data: {
-                ...months[month ?? 6],
-                rasters: months[month ?? 6].rasters.map(values =>
-                  values.map(x => x & (1 << (day ?? 29 - 1)))
-                )
-              },
+              data: [months[hour ?? 0 + 1]],
+              // ...months[month ?? 6],
+              // rasters: months[month ?? 6].rasters.map(values =>
+              //   values.map(x => x & (1 << (day ?? 29 - 1)))
+              // )
+              //   },
               mask: showRoofOnly ? mask : undefined,
               colors: colors,
               min: 0,
-              max: 1,
-              index: hour
+              max: 1
+              //   index: hour
             })
-          )
+          ]
+        }
+        //   )
       }
     }
   }
