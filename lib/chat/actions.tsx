@@ -38,11 +38,13 @@ import { auth } from '@/auth'
 
 import systemPrompt from '@/lib/chat/systemPrompt'
 import { requestELISchema } from '@/lib/chat/schema'
-import { fetchCoordinates } from '@/lib/chat/tools/fetchGeoData'
+import { downloadGeoTIFF, fetchCoordinates } from '@/lib/chat/tools/fetchGeoData'
 import fetchPrograms from '@/lib/chat/tools/fetchPrograms'
 import fetchIncentives from '@/lib/chat/tools/fetchIncentives'
 import { fetchDSIRE } from '@/lib/chat/tools/fetchPinecone'
 import { kv } from '@vercel/kv'
+import { renderPalette } from './tools/fetchGeoData/visualize'
+import { MapDataCanvas } from '@/components/data-layer'
 
 async function confirmPurchase(symbol: string, price: number, amount: number) {
   'use server'
@@ -97,9 +99,8 @@ async function confirmPurchase(symbol: string, price: number, amount: number) {
         {
           id: nanoid(),
           role: 'system',
-          content: `[User has purchased ${amount} shares of ${symbol} at ${price}. Total cost = ${
-            amount * price
-          }]`
+          content: `[User has purchased ${amount} shares of ${symbol} at ${price}. Total cost = ${amount * price
+            }]`
         }
       ]
     })
@@ -166,17 +167,17 @@ async function submitUserMessage(content: string) {
     // system: `\
     // You are a stock trading conversation bot and you can help users buy stocks, step by step.
     // You and the user can discuss stock prices and the user can adjust the amount of stocks they want to buy, or place an order, in the UI.
-    
+
     // Messages inside [] means that it's a UI element or a user event. For example:
     // - "[Price of AAPL = 100]" means that an interface of the stock price of AAPL is shown to the user.
     // - "[User has changed the amount of AAPL to 10]" means that the user has changed the amount of AAPL to 10 in the UI.
-    
+
     // If the user requests purchasing a stock, call \`show_stock_purchase_ui\` to show the purchase UI.
     // If the user just wants the price, call \`show_stock_price\` to show the price.
     // If you want to show trending stocks, call \`list_stocks\`.
     // If you want to show events, call \`get_events\`.
     // If the user wants to sell stock, or complete another impossible task, respond that you are a demo and cannot do that.
-    
+
     // Besides that, you can also chat with users and do some calculations if needed.`,
     messages: [
       ...aiState.get().messages.map((message: any) => ({
@@ -289,7 +290,7 @@ async function submitUserMessage(content: string) {
           return (
             <BotCard>
               {/* pass in programsData into UI element */}
-              <p>programs Data</p> 
+              <p>programs Data</p>
             </BotCard>
           )
         }
@@ -366,7 +367,7 @@ async function submitUserMessage(content: string) {
           sector: z.nativeEnum(Sector).optional().describe('The sector to filter the results'),
           category: z.nativeEnum(IncentiveCategory).optional().describe('The category to filter the results')
         }),
-        generate: async function* ({ query, state, sector, category}) {
+        generate: async function* ({ query, state, sector, category }) {
           yield (
             <BotCard>
               <p>Getting DSIRE response</p>
@@ -440,12 +441,16 @@ async function submitUserMessage(content: string) {
             </BotCard>
           )
 
-          // Calculate solar cost here
-          let coordinates: any = null;
+          let mask;
+          let data;
+
           try {
             const storedData = await getStoredData(['address']);
-            coordinates = await fetchCoordinates(address ?? storedData['address']);
-            console.log('coordinates:', coordinates)
+            const { geoData, dataLayers } = await fetchCoordinates(address ?? storedData['address']);
+            [mask, data] = await Promise.all([
+              downloadGeoTIFF(dataLayers.maskUrl),
+              downloadGeoTIFF(dataLayers.annualFluxUrl),
+            ]);
           } catch (error) {
             // Handle any errors here
             console.error('Failed to fetch coordinates:', error);
@@ -454,7 +459,7 @@ async function submitUserMessage(content: string) {
           return (
             <BotCard>
               {/* pass in solar cost into UI element */}
-              <p></p>
+              <MapDataCanvas mask={mask} data={data} />
             </BotCard>
           )
         }
@@ -494,13 +499,13 @@ async function submitUserMessage(content: string) {
           yield `Storing ${key} as ${value}...`;
 
           await sleep(1000)
-          
+
           try {
             await kv.set(key, value, { ex: 100, nx: true });
           } catch (error) {
-              console.error('Failed to set value:', error);
+            console.error('Failed to set value:', error);
           }
-          
+
           try {
             const storedValue = await kv.get(key);
             console.log('Successfully stored value:', storedValue);
