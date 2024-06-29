@@ -20,11 +20,8 @@ import {
 } from '@/components/stocks'
 
 import { z } from 'zod'
-import { EventsSkeleton } from '@/components/stocks/events-skeleton'
 import { Events } from '@/components/stocks/events'
-import { StocksSkeleton } from '@/components/stocks/stocks-skeleton'
 import { Stocks } from '@/components/stocks/stocks'
-import { StockSkeleton } from '@/components/stocks/stock-skeleton'
 import {
   formatNumber,
   runAsyncFnWithoutBlocking,
@@ -33,20 +30,13 @@ import {
 } from '@/lib/utils'
 import { saveChat } from '@/app/actions'
 import { SpinnerMessage, UserMessage } from '@/components/stocks/message'
-import { Chat, Message, State, IncentiveCategory, Sector } from '@/lib/types'
+import { Chat, Message } from '@/lib/types'
 import { auth } from '@/auth'
 
 import systemPrompt from '@/lib/chat/systemPrompt'
-import { downloadGeoTIFF, fetchCoordinates } from '@/lib/chat/tools/fetchGeoData'
-import { RecommendationItemSchema, RecommendationOptionSchema, requestELISchema } from '@/lib/chat/schema'
-import fetchPrograms from '@/lib/chat/tools/fetchPrograms'
-import fetchIncentives from '@/lib/chat/tools/fetchIncentives'
-import { fetchDSIRE } from '@/lib/chat/tools/fetchPinecone'
+import { RecommendationItemSchema, RecommendationOptionSchema } from '@/lib/chat/schema'
+
 import { kv } from '@vercel/kv'
-import { MapDataCanvas } from '@/components/data-layer'
-import { DataLayers, LayerId, LayerIdOption } from './tools/fetchGeoData/solar'
-import { SolarStats } from '@/components/solar-stats'
-import { ChartSkeleton } from '@/components/charts/chart-skeleton'
 import { ChartSavings } from '@/components/charts'
 import { streamText } from 'ai'
 
