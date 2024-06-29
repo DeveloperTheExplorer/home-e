@@ -36,25 +36,25 @@ export function ChatPanel({
 
   const exampleMessages = [
     {
-      heading: 'What are the',
-      subheading: 'trending memecoins today?',
-      message: `What are the trending memecoins today?`
+      heading: 'What are my best options to upgrade',
+      subheading: 'in San Francisco?',
+      message: `Give me recommendations on what I can do to make my home more. I would like a rendered UI on what that would look like with some charts on savings on costs and power consumption. I am based in San Francisco.`
     },
     {
-      heading: 'What is the price of',
-      subheading: '$DOGE right now?',
-      message: 'What is the price of $DOGE right now?'
+      heading: 'What are my best options to upgrade',
+      subheading: 'in Los Angeles?',
+      message: `Give me recommendations on what I can do to make my home more. I would like a rendered UI on what that would look like with some charts on savings on costs and power consumption. I am based in Los Angeles.`
     },
     {
-      heading: 'I would like to buy',
-      subheading: '42 $DOGE',
-      message: `I would like to buy 42 $DOGE`
+      heading: 'What are my best options to upgrade',
+      subheading: 'in San Diego?',
+      message: `Give me recommendations on what I can do to make my home more. I would like a rendered UI on what that would look like with some charts on savings on costs and power consumption. I am based in San Diego.`
     },
     {
-      heading: 'What are some',
-      subheading: `recent events about $DOGE?`,
-      message: `What are some recent events about $DOGE?`
-    }
+      heading: 'What are my best options to upgrade',
+      subheading: 'in Sacramento?',
+      message: `Give me recommendations on what I can do to make my home more. I would like a rendered UI on what that would look like with some charts on savings on costs and power consumption. I am based in Sacramento.`
+    },
   ]
 
   return (
@@ -70,9 +70,8 @@ export function ChatPanel({
             exampleMessages.map((example, index) => (
               <div
                 key={example.heading}
-                className={`cursor-pointer rounded-lg border bg-white p-4 hover:bg-zinc-50 dark:bg-zinc-950 dark:hover:bg-zinc-900 ${
-                  index > 1 && 'hidden md:block'
-                }`}
+                className={`cursor-pointer rounded-lg border bg-white p-4 hover:bg-zinc-50 dark:bg-zinc-950 dark:hover:bg-zinc-900 ${index > 1 && 'hidden md:block'
+                  }`}
                 onClick={async () => {
                   setMessages(currentMessages => [
                     ...currentMessages,

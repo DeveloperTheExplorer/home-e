@@ -42,6 +42,10 @@ export function formatDate(input: string | number | Date): string {
   })
 }
 
+export function camelCase(input: string): string {
+  return input.replace(/([A-Z])/g, ' $1').toLowerCase()
+}
+
 export const formatNumber = (value: number) =>
   new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -87,3 +91,19 @@ export const getMessageFromCode = (resultCode: string) => {
       return 'Logged in!'
   }
 }
+
+export const formatCompactNumber = (value?: unknown, maxDecmials = 2, minDecimals = 2) => {
+  if (typeof value !== 'string' && typeof value !== 'number') {
+    return '-.--';
+  }
+  if (!value || value == 0) {
+    return '0.00';
+  }
+  return Intl.NumberFormat('en-US', {
+    notation: 'compact',
+    maximumFractionDigits: maxDecmials,
+    minimumFractionDigits: minDecimals,
+  })
+    .format(Number(value))
+    .toLowerCase();
+};

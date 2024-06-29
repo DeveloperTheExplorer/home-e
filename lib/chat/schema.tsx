@@ -1,5 +1,34 @@
 import { z } from "zod";
 
+const ConsumptionDataPointSchema = z.object({
+  date: z.number(),
+  consumption: z.number(),
+  generation: z.number(),
+});
+
+const SavingsDataPointSchema = z.object({
+  date: z.number(),
+  costBefore: z.number(),
+  costAfter: z.number(),
+});
+
+export const RecommendationItemSchema = z.object({
+  consumptionData: z.array(ConsumptionDataPointSchema),
+  savingsData: z.array(SavingsDataPointSchema),
+  upfrontCost: z.number(),
+  incentives: z.number(),
+  paybackPeriod: z.number(),
+  revenue5yrs: z.number(),
+});
+
+export const RecommendationOptionSchema = z.object({
+  title: z.string(),
+  description: z.string(),
+  valueRange: z.string(),
+  source: z.string(),
+  citationUrl: z.string(),
+});
+
 const addressSchema = z.object({
   line1: z.string().optional().describe("Restricts programs that apply at a specific street address."),
   line2: z.string().optional().describe("Restricts programs that apply at a specific street address."),
