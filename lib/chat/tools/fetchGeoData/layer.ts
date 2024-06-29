@@ -55,6 +55,7 @@ export async function getLayer(
     },
     dsm: async () => {
       const [mask, data] = inputs
+      //  @ts-ignore
       const sortedValues = Array.from(data.rasters[0]).sort((x, y) => x - y)
       const minValue = sortedValues[0]
       const maxValue = sortedValues.slice(-1)[0]
@@ -64,7 +65,9 @@ export async function getLayer(
         bounds: mask.bounds,
         palette: {
           colors: colors,
+          //  @ts-ignore
           min: `${minValue.toFixed(1)} m`,
+          //  @ts-ignore
           max: `${maxValue.toFixed(1)} m`
         },
         render: showRoofOnly => [
@@ -72,7 +75,9 @@ export async function getLayer(
             data: data,
             mask: showRoofOnly ? mask : undefined,
             colors: colors,
+            //  @ts-ignore
             min: sortedValues[0],
+            //  @ts-ignore
             max: sortedValues.slice(-1)[0]
           })
         ]
@@ -154,6 +159,7 @@ export async function getLayer(
           console.log('Hourly shade data: ', [months[hour ?? 0 + 1]], hour)
           return [
             renderPalette(canvas, {
+              //  @ts-ignore
               data: [months[hour ?? 0 + 1]],
               // ...months[month ?? 6],
               // rasters: months[month ?? 6].rasters.map(values =>

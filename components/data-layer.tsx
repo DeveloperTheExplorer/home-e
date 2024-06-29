@@ -7,6 +7,7 @@ import Image from 'next/image'
 import { getLayer } from '@/lib/chat/tools/fetchGeoData/layer'
 import { LayerId } from '@/lib/chat/tools/fetchGeoData/solar'
 import { DropdownMenuItem, DropdownMenu, DropdownMenuContent, DropdownMenuGroup } from '@/components/ui/dropdown-menu'
+import { cn } from '@/lib/utils'
 
 interface MapDataCanvasProps {
     data: any
@@ -72,8 +73,8 @@ export async function MapDataCanvas({ data, month = 6, day = 29, layerIds = ['an
 
     return <>
         <div className='relative'>
-            {layerIds.map((layerId) =>
-                <DataLayer key={layerId} layerId={layerId} showRoofOnly={['annualFlux', 'monthlyFlux', 'hourlyShade'].includes(layerId)} data={data[layerId]} month={month} day={day} />
+            {layerIds.map((layerId, index) =>
+                <DataLayer key={layerId} index={index} layerId={layerId} showRoofOnly={['annualFlux', 'monthlyFlux', 'hourlyShade'].includes(layerId)} data={data[layerId]} month={month} day={day} />
             )}
             {/* {layerIds.map((layerId) => {
                 return layerId !== 'hourlyShade' ?
@@ -98,7 +99,8 @@ export async function MapDataCanvas({ data, month = 6, day = 29, layerIds = ['an
     </>
 }
 
-async function DataLayer({ layerId, data, showRoofOnly = false, month = 6, day = 29 }) {
+// @ts-ignore
+async function DataLayer({ layerId, data, showRoofOnly = false, month = 6, day = 29, index = 1 }) {
     // Canvas reference
     const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -148,106 +150,25 @@ async function DataLayer({ layerId, data, showRoofOnly = false, month = 6, day =
         context.drawImage(image, 0, 0)
     }, [canvasRef, imgRef, data, month, day, layerId, showRoofOnly])
 
-    return <div className='absolute top-0 left-0 pb-80'>
-        <canvas
-            ref={canvasRef}
-            style={{
-                border: 'solid 1px black',
-            }}
-        ></canvas>
-        <Image
-            ref={imgRef}
-            src={'/blank.png'}
-            width={100}
-            height={100}
-            alt=""
-            priority={true}
-            style={{
-                display: 'none',
-            }}
-        /></div>
-}
-
-async function HourlyLayer({ data, showRoofOnly = false, month = 6, day = 29 }) {
-    const [hour, setHour] = useState(0);
-
-    // Canvas reference
-    const canvasRef = useRef<HTMLCanvasElement>(null)
-
-    // Create imgRef reference
-    const [images, setImages] = useState<HTMLImageElement[]>([])
-    const imgRef = useRef<HTMLImageElement>(null)
-    const imageReferences = useRef<HTMLImageElement[]>([])
-
-    const layerId = 'hourlyShade'
-
-    useEffect(() => {
-        const interval = setInterval(() => hour > 20 ? setHour(0) : setHour(hour + 1), 2_500);
-        console.log('Hour:', hour, hour + 1 % 11);
-        // setImg(images[hour])
-        // @ts-ignore
-        imgRef.current = images[hour]
-        return () => clearInterval(interval);
-    }, [hour, images]);
-
-    useEffect(() => {
-        const renderLayer = async (index: number) => {
-            try {
-                const layer = await getLayer(canvasRef.current!, layerId, data);
-                // TODO: Need to feed in months to update hourly map
-                let overlays: any[] = [];
-                const bounds = layer.bounds;
-                console.log('Render layer:', {
-                    layerId: layer.id,
-                    data: data,
-                    showRoofOnly: showRoofOnly,
-                    month: month,
-                    day: day,
-                });
-                overlays.map((overlay) => overlay.setMap(null));
-                overlays = layer
-                    .render(showRoofOnly, month, day, index)
-                    // @ts-ignore
-                    .map((canvas: any) => new google.maps.GroundOverlay(canvas.toDataURL(), bounds));
-            } catch (error) {
-                console.error(error)
-            }
-        }
-        renderLayer(hour)
-        const canvas = canvasRef.current
-
-        if (canvas === null)
-            return
-
-        const context = canvas.getContext('2d')
-
-        if (context === null)
-            return
-
-        const image = imgRef.current
-
-        if (image === null)
-            return
-
-        context.drawImage(image, 0, 0)
-    }, [data, day, hour, month, showRoofOnly]);
-
-    return <div className='absolute top-0 left-0'>
-        <canvas
-            ref={canvasRef}
-            style={{
-                border: 'solid 1px black',
-            }}
-        ></canvas>
-        <Image
-            ref={imgRef}
-            src={'/blank.png'}
-            width={100}
-            height={100}
-            alt=""
-            priority={true}
-            style={{
-                display: 'none',
-            }}
-        /></div>
+    return (
+        <div className={cn('top-0 left-0 pb-80', index === 0 ? 'relative' : 'absolute')}>
+            <canvas
+                ref={canvasRef}
+                style={{
+                    border: 'solid 1px black',
+                }}
+            ></canvas>
+            <Image
+                ref={imgRef}
+                src={'/blank.png'}
+                width={100}
+                height={100}
+                alt=""
+                priority={true}
+                style={{
+                    display: 'none',
+                }}
+            />
+        </div>
+    )
 }

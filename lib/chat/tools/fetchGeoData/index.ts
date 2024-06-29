@@ -1,7 +1,7 @@
 import * as geotiff from 'geotiff'
 import * as geokeysToProj4 from 'geotiff-geokeys-to-proj4'
+// @ts-ignore
 import proj4 from 'proj4'
-import { kv } from '@vercel/kv'
 
 export interface Bounds {
   north: number
