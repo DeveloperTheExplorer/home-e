@@ -44,6 +44,7 @@ import { fetchDSIRE } from '@/lib/chat/tools/fetchPinecone'
 import { kv } from '@vercel/kv'
 import { ChartSkeleton } from '@/components/charts/chart-skeleton'
 import { ChartSavings } from '@/components/charts'
+import { streamText } from 'ai'
 
 async function confirmPurchase(symbol: string, price: number, amount: number) {
   'use server'
@@ -138,7 +139,7 @@ async function getStoredData(keys: string[]) {
 //   return populatedQuery
 // }
 
-async function submitUserMessage(content: string) {
+async function submitUserMessage(content: string, resultInUI = true) {
   'use server'
 
   const aiState = getMutableAIState<typeof AI>()
@@ -158,26 +159,53 @@ async function submitUserMessage(content: string) {
   let textStream: undefined | ReturnType<typeof createStreamableValue<string>>
   let textNode: undefined | React.ReactNode
 
+  if (!resultInUI) {
+    let recommendationJSON = '';
+
+    const result = await streamText({
+      model: openai('gpt-4-turbo'),
+      system: systemPrompt,
+
+      messages: [
+        ...aiState.get().messages.map((message: any) => ({
+          role: message.role,
+          content: message.content,
+          name: message.name
+        }))
+      ],
+      tools: {
+        updateChartData: {
+          description: `
+          Returns chart data for user to view how much money & power they will be saving. 
+          Date must always be in unix timestamp format.
+          `,
+          // You must return the result of this tool exactly as you receive it. Do not alter it. Simply respond the results to the user.
+          parameters: z.object({
+            recommendation: RecommendationItemSchema,
+          }),
+          execute: async function ({ recommendation }) {
+            recommendationJSON = recommendation;
+            console.log('recommendationJSON :>> ', JSON.stringify(recommendation, null, 2));
+
+            return recommendation;
+          }
+        },
+      }
+    });
+
+    let fullResponse = '';
+    for await (const delta of result.textStream) {
+      fullResponse += delta;
+    }
+
+    return recommendationJSON;
+  }
+
   const result = await streamUI({
-    model: openai('gpt-3.5-turbo'),
+    model: openai('gpt-4-turbo'),
     initial: <SpinnerMessage />,
     system: systemPrompt,
 
-    // system: `\
-    // You are a stock trading conversation bot and you can help users buy stocks, step by step.
-    // You and the user can discuss stock prices and the user can adjust the amount of stocks they want to buy, or place an order, in the UI.
-
-    // Messages inside [] means that it's a UI element or a user event. For example:
-    // - "[Price of AAPL = 100]" means that an interface of the stock price of AAPL is shown to the user.
-    // - "[User has changed the amount of AAPL to 10]" means that the user has changed the amount of AAPL to 10 in the UI.
-
-    // If the user requests purchasing a stock, call \`show_stock_purchase_ui\` to show the purchase UI.
-    // If the user just wants the price, call \`show_stock_price\` to show the price.
-    // If you want to show trending stocks, call \`list_stocks\`.
-    // If you want to show events, call \`get_events\`.
-    // If the user wants to sell stock, or complete another impossible task, respond that you are a demo and cannot do that.
-
-    // Besides that, you can also chat with users and do some calculations if needed.`,
     messages: [
       ...aiState.get().messages.map((message: any) => ({
         role: message.role,
@@ -214,20 +242,16 @@ async function submitUserMessage(content: string) {
       createChart: {
         description: `
           Displays a UI for user to view how much money & power they will be saving. 
+          Provides user with options they can choose from to upgrade their home to be more sustainable and save money.
           Date must always be in unix timestamp format.
           You must provide exatly 7 recommendations and 3 options.
+          The output for this
         `,
         parameters: z.object({
           recommendations: z.array(RecommendationItemSchema),
           options: z.array(RecommendationOptionSchema)
         }),
         generate: async function* ({ recommendations, options }) {
-          yield (
-            <BotCard>
-              <ChartSkeleton />
-            </BotCard>
-          );
-          await sleep(1000)
 
           const toolCallId = nanoid()
 
@@ -352,70 +376,71 @@ async function submitUserMessage(content: string) {
       //     )
       //   }
       // },
-      retrieveIncentives: {
-        description: 'retrieves information for homeowners to make money through energy incentives ',
-        parameters: z.object({
-          query: requestELISchema
-        }),
-        generate: async function* ({ query }) {
-          yield (
-            <BotCard>
-              <p>Getting incentive response</p>
-            </BotCard>
-          )
+      // retrieveIncentives: {
+      //   description: 'retrieves information for homeowners to make money through energy incentives ',
+      //   parameters: z.object({
+      //     query: requestELISchema
+      //   }),
+      //   generate: async function* ({ query }) {
+      //     yield (
+      //       <BotCard>
+      //         <p>Getting incentive response</p>
+      //       </BotCard>
+      //     )
 
-          await sleep(1000)
+      //     await sleep(1000)
 
-          let incentivesData: any = null;
-          try {
-            incentivesData = await fetchIncentives(query);
-            // Use programsData here
-          } catch (error) {
-            // Handle any errors here
-            console.error('Failed to fetch incentives:', error);
-          }
+      //     let incentivesData: any = null;
+      //     try {
+      //       incentivesData = await fetchIncentives(query);
+      //       // Use programsData here
+      //     } catch (error) {
+      //       // Handle any errors here
+      //       console.error('Failed to fetch incentives:', error);
+      //     }
 
-          const toolCallId = nanoid()
+      //     const toolCallId = nanoid()
 
-          aiState.done({
-            ...aiState.get(),
-            messages: [
-              ...aiState.get().messages,
-              {
-                id: nanoid(),
-                role: 'assistant',
-                content: [
-                  {
-                    type: 'tool-call',
-                    toolName: 'retrieveIncentives',
-                    toolCallId,
-                    args: { query }
-                  }
-                ]
-              },
-              {
-                id: nanoid(),
-                role: 'tool',
-                content: [
-                  {
-                    type: 'tool-result',
-                    toolName: 'retrieveIncentives',
-                    toolCallId,
-                    result: incentivesData
-                  }
-                ]
-              }
-            ]
-          })
+      //     aiState.done({
+      //       ...aiState.get(),
+      //       messages: [
+      //         ...aiState.get().messages,
+      //         {
+      //           id: nanoid(),
+      //           role: 'assistant',
+      //           content: [
+      //             {
+      //               type: 'tool-call',
+      //               toolName: 'retrieveIncentives',
+      //               toolCallId,
+      //               args: { query }
+      //             }
+      //           ]
+      //         },
+      //         {
+      //           id: nanoid(),
+      //           role: 'tool',
+      //           content: [
+      //             {
+      //               type: 'tool-result',
+      //               toolName: 'retrieveIncentives',
+      //               toolCallId,
+      //               result: incentivesData
+      //             }
+      //           ]
+      //         }
+      //       ]
+      //     })
 
-          return (
-            <BotCard>
-              {/* pass in incentives into UI element */}
-              <p>Incentives</p>
-            </BotCard>
-          )
-        }
-      },
+      //     return (
+      //       <BotCard>
+      //         {/* pass in incentives into UI element */}
+      //         <h4>Incentives</h4>
+      //         <p>{JSON.stringify(incentivesData, null, 4)}</p>
+      //       </BotCard>
+      //     )
+      //   }
+      // },
       // queryDSIRE: {
       //   description: 'query to a vector database of legislation regarding state, federal, and municipal laws from DSIRE',
       //   parameters: z.object({
@@ -873,7 +898,6 @@ export const AI = createAI<AIState, UIState>({
 
       if (aiState) {
         const uiState = getUIStateFromAIState(aiState)
-        console.log('uiState :>> ', uiState);
         return uiState
       }
     } else {
@@ -919,7 +943,6 @@ export const getUIStateFromAIState = (aiState: Chat) => {
       display:
         message.role === 'tool' ? (
           message.content.map(tool => {
-            console.log('tool :>> ', tool);
             return tool.toolName === 'listStocks' ? (
               <BotCard>
                 {/* TODO: Infer types based on the tool result*/}

@@ -5,13 +5,18 @@ import { TooltipProps } from 'recharts';
 import { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
 import { cn, formatCompactNumber } from '@/lib/utils';
 
+export type ChartToolTip<TValue extends ValueType, TName extends NameType> = TooltipProps<TValue, TName> & {
+  dateFormat?: string;
+};
+
 const ChartToolTip = <TValue extends ValueType, TName extends NameType>({
   active,
   payload,
   label,
   labelFormatter,
+  dateFormat,
   ...rest
-}: TooltipProps<TValue, TName>) => {
+}: ChartToolTip<TValue, TName>) => {
   if (!active || !payload?.length) {
     return null;
   }
@@ -28,7 +33,7 @@ const ChartToolTip = <TValue extends ValueType, TName extends NameType>({
     if (!isNaN(formattedLabel)) {
       formattedLabel = Number(formattedLabel) * 1000;
     }
-    formattedLabel = dayjs(formattedLabel).format('MMM DD, YYYY');
+    formattedLabel = dayjs(formattedLabel).format(dateFormat ?? 'MMM DD, YYYY');
   }
 
   return (

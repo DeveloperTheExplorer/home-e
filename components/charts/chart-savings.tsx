@@ -1,7 +1,11 @@
 import React, { useMemo, useState } from "react";
+import { useActions } from 'ai/rsc'
+
 import { ChartComposed } from "./chart-composed";
 import { cn, formatNumber } from "@/lib/utils";
 import { Button } from "../ui/button";
+import dayjs from "dayjs";
+import { IconSpinner } from "../ui/icons";
 
 export interface ConsumptionDataPoint {
   date: number; // <- Unix
@@ -41,18 +45,28 @@ export interface ChartSavingsProps {
 
 
 export const ChartSavings: React.FC<ChartSavingsProps> = ({ props: { options, recommendations } }) => {
-  console.log('options, recommendations :>> ', options, recommendations);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [recommendationItem, setRecommendationItem] = useState<RecommendationItem>(recommendations[0]);
+  const { submitUserMessage } = useActions();
+
+  const getSelectedOptions = (selectedIndex: number) => {
+    const selectedOptions: number[] = [];
+    const optionValues = [4, 2, 1];
+    let indexRemainder = selectedIndex;
+    for (let i = 0; i < optionValues.length; i++) {
+      if (indexRemainder / optionValues[i] >= 1) {
+        selectedOptions.push(optionValues[i]);
+        indexRemainder = indexRemainder - optionValues[i];
+      }
+    }
+    return selectedOptions;
+  }
+
   const { selectedOptions, consumptionData, savingsData, areas, bars, summary, totalCostSavings, totalConsumptionSaved } = useMemo(
     () => {
-      const currentSolution = recommendations[selectedIndex];
-      const selectedOptions: number[] = [];
-      const optionValues = [4, 2, 1, 0];
-      for (let i = 0; i < optionValues.length; i++) {
-        if (selectedIndex % optionValues[i] > 0) {
-          selectedOptions.push(optionValues[i]);
-        }
-      }
+      const currentSolution = recommendationItem;
+      const selectedOptions: number[] = getSelectedOptions(selectedIndex);
 
       return {
         selectedOptions,
@@ -92,44 +106,74 @@ export const ChartSavings: React.FC<ChartSavingsProps> = ({ props: { options, re
         ],
       };
     }
-    , [recommendations, selectedIndex, options]
-  )
+    , [recommendations, recommendationItem, selectedIndex, options]
+  );
+
+  const handleOptionsChange = async (newSelectedIndex: number) => {
+    setIsLoading(true);
+    setSelectedIndex(newSelectedIndex);
+    try {
+      const newSelectedOptionIndexes = getSelectedOptions(newSelectedIndex);
+
+      const newSelectedOptions = newSelectedOptionIndexes.map(i => options[i]);
+      const prompt = `Update my chart data so I can see what happens when I wanted to make the following changes: ${newSelectedOptions.map(o => `${o.title}\n${o.description}`).join(',\n\n')}`
+      const result = await submitUserMessage(prompt, false);
+
+      setRecommendationItem(result);
+    } catch (error) {
+      console.log('error :>> ', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   return (
-    <div className="flex flex-col space-y-4 w-full">
-      <div className="flex flex-row justify-between flex-wrap w-full">
+    <div className="relative flex flex-col space-y-4 w-full">
+      {isLoading && (
+        <div className="absolute z-50 w-full h-full top-0 left-0 flex flex-row items-center justify-center bg-white/50 backdrop-blur-sm">
+          <IconSpinner className="mr-2 size-12 animate-spin" />
+        </div>
+      )}
+      <div className="flex flex-col w-full gap-4">
         <ChartComposed
+          legend
           data={consumptionData}
-          containerClassName='h-72 w-3/5'
+          containerClassName='h-72 w-full'
           header={{
             title: 'Potential Consumption Data',
-            subTitle: `Estimated Savings: ${totalConsumptionSaved} Kwh`,
+            subTitle: `Estimated Savings: ${Math.abs(totalConsumptionSaved)} Kwh`,
           }}
           xAxisProps={{
             dataKey: 'date',
             hide: false,
+            tickFormatter: (value) => dayjs(value * 1000).format('ha'),
+          }}
+          tooltipProps={{
+            dateFormat: 'ha',
           }}
           yAxisProps={{ hide: true }}
           bars={bars}
         />
         <ChartComposed
+          legend
           data={savingsData}
-          containerClassName='h-72 w-2/5'
+          containerClassName='h-72 w-full'
           header={{
             title: 'Potential Utility Costs',
-            subTitle: `Estimated Savings: ${formatNumber(totalCostSavings)}`,
+            subTitle: `Estimated Savings per Month: ${formatNumber(totalCostSavings)}`,
             // subTitleExtension: '/Mwh',
           }}
           xAxisProps={{
             dataKey: 'date',
             hide: false,
+            tickFormatter: (value) => dayjs(value * 1000).format('MMM, \'YY'),
           }}
           yAxisProps={{ hide: true }}
           areas={areas}
         />
       </div>
-      <div className="flex flex-row justify-between flex-wrap">
-        <div className="flex flex-col w-1/2">
+      <div className="flex flex-row justify-between flex-wrap xl:flex-nowrap gap-8">
+        <div className="flex flex-col w-1/2 gap-2">
           <h3>Options:</h3>
           {options.map((option, index) => {
             const optionValue = 2 ** index;
@@ -139,7 +183,7 @@ export const ChartSavings: React.FC<ChartSavingsProps> = ({ props: { options, re
             return (
               <button
                 key={option.title}
-                onClick={() => setSelectedIndex(newSelectedIndex)}
+                onClick={() => handleOptionsChange(newSelectedIndex)}
                 className={cn('text-left p-2 space-y-2 rounded-md border-2 shadow-md bg-background text-foreground ', isSelected ? 'border-primary' : 'border-background')}
               >
                 <h4 className="font-medium">{option.title}</h4>
@@ -149,7 +193,7 @@ export const ChartSavings: React.FC<ChartSavingsProps> = ({ props: { options, re
             )
           })}
         </div>
-        <div className="flex flex-col w-1/3 space-y-2">
+        <div className="flex flex-col w-1/2 gap-2">
           <h3 className="font-medium">Summary</h3>
           <div className="flex justify-between w-full">
             <h4>Upfront Cost</h4>
@@ -168,7 +212,8 @@ export const ChartSavings: React.FC<ChartSavingsProps> = ({ props: { options, re
             <p>{formatNumber(summary.revenue5yrs)}</p>
           </div>
 
-          <Button>Get me home-ed</Button>
+          <Button className="mt-8">Get me Electrified!</Button>
+          <p className="text-xs text-center w-full text-balance">Talk to a professional to upgrade your home.</p>
         </div>
       </div>
     </div>

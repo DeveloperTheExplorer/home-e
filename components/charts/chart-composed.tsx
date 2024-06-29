@@ -94,7 +94,7 @@ export interface ChartComposedProps<T> extends CompStatusData {
    * @default {}
    * @see https://recharts.org/en-US/api/Tooltip
    */
-  tooltipProps?: TooltipProps<any, string>;
+  tooltipProps?: TooltipProps<any, string> & { dateFormat?: string };
 
   children?: React.ReactNode;
 }
@@ -192,7 +192,7 @@ export function ChartComposed<T extends object>({
               }
             }
           />
-          {tooltip && <Tooltip content={<ChartToolTip />} {...tooltipProps} />}
+          {tooltip && <Tooltip content={<ChartToolTip dateFormat={tooltipProps?.dateFormat} />} {...tooltipProps} />}
           {legend && <Legend verticalAlign='top' />}
           {refLine && <ReferenceLine y={0} stroke='#000' />}
           {memoizedLines?.map(line => {

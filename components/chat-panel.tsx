@@ -36,25 +36,25 @@ export function ChatPanel({
 
   const exampleMessages = [
     {
-      heading: 'What are the',
-      subheading: 'best ways to save on utilities in San Francisco?',
-      message: `What are the best ways to save on utilities in San Francisco?`
+      heading: 'What are my best options to upgrade',
+      subheading: 'in San Francisco?',
+      message: `Give me recommendations on what I can do to make my home more. I would like a rendered UI on what that would look like with some charts on savings on costs and power consumption.`
     },
     {
-      heading: 'What are the basic requirements',
-      subheading: 'for installing solar in San Francisco?',
-      message: 'What are the basic requirements for installing solar in San Francisco?'
+      heading: 'What are my best options to upgrade',
+      subheading: 'in Los Angeles?',
+      message: `Give me recommendations on what I can do to make my home more. I would like a rendered UI on what that would look like with some charts on savings on costs and power consumption.`
     },
     {
-      heading: 'How can I upgrade',
-      subheading: 'my heatpump?',
-      message: `How can I upgrade my heatpump?`
+      heading: 'What are my best options to upgrade',
+      subheading: 'in San Diego?',
+      message: `Give me recommendations on what I can do to make my home more. I would like a rendered UI on what that would look like with some charts on savings on costs and power consumption.`
     },
     {
-      heading: 'What are some',
-      subheading: `recent events about regluations around solar in San Francisco?`,
-      message: `What are some recent events about regluations around solar in San Francisco?`
-    }
+      heading: 'What are my best options to upgrade',
+      subheading: 'in Sacramento?',
+      message: `Give me recommendations on what I can do to make my home more. I would like a rendered UI on what that would look like with some charts on savings on costs and power consumption.`
+    },
   ]
 
   return (
