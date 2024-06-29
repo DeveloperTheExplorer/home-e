@@ -38,22 +38,22 @@ export function ChatPanel({
     {
       heading: 'What are my best options to upgrade',
       subheading: 'in San Francisco?',
-      message: `Give me recommendations on what I can do to make my home more. I would like a rendered UI on what that would look like with some charts on savings on costs and power consumption.`
+      message: `Give me recommendations on what I can do to make my home more. I would like a rendered UI on what that would look like with some charts on savings on costs and power consumption. I am based in San Francisco.`
     },
     {
       heading: 'What are my best options to upgrade',
       subheading: 'in Los Angeles?',
-      message: `Give me recommendations on what I can do to make my home more. I would like a rendered UI on what that would look like with some charts on savings on costs and power consumption.`
+      message: `Give me recommendations on what I can do to make my home more. I would like a rendered UI on what that would look like with some charts on savings on costs and power consumption. I am based in Los Angeles.`
     },
     {
       heading: 'What are my best options to upgrade',
       subheading: 'in San Diego?',
-      message: `Give me recommendations on what I can do to make my home more. I would like a rendered UI on what that would look like with some charts on savings on costs and power consumption.`
+      message: `Give me recommendations on what I can do to make my home more. I would like a rendered UI on what that would look like with some charts on savings on costs and power consumption. I am based in San Diego.`
     },
     {
       heading: 'What are my best options to upgrade',
       subheading: 'in Sacramento?',
-      message: `Give me recommendations on what I can do to make my home more. I would like a rendered UI on what that would look like with some charts on savings on costs and power consumption.`
+      message: `Give me recommendations on what I can do to make my home more. I would like a rendered UI on what that would look like with some charts on savings on costs and power consumption. I am based in Sacramento.`
     },
   ]
 
