@@ -1,18 +1,21 @@
 'use client'
 
-import { useRef, useEffect} from 'react'
+import { useRef, useEffect } from 'react'
 
 import Image from 'next/image'
 
+import { getLayer } from '@/lib/chat/tools/fetchGeoData/layer'
+import { LayerId } from '@/lib/chat/tools/fetchGeoData/solar'
+import { DropdownMenuItem, DropdownMenu, DropdownMenuContent, DropdownMenuGroup } from '@/components/ui/dropdown-menu'
 
-import { cn } from '@/lib/utils'
-import { SidebarList } from '@/components/sidebar-list'
-import { buttonVariants } from '@/components/ui/button'
-import { IconPlus } from '@/components/ui/icons'
-import { downloadGeoTIFF } from '@/lib/chat/tools/fetchGeoData'
-import { renderPalette } from '@/lib/chat/tools/fetchGeoData/visualize'
+interface MapDataCanvasProps {
+    data: any
+    month?: number
+    day?: number
+    layerIds: LayerId[]
+}
 
-export async function MapDataCanvas({ mask, data, month = 6, day = 29, layerId = 'monthlyFlux', ironPalette = ['00000A', '91009C', 'E64616', 'FEB400', 'FFFFF6'] }) {
+export async function MapDataCanvas({ data, month = 6, day = 29, layerIds = ['annualFlux', 'rgb'] }: MapDataCanvasProps) {
 
     // Canvas reference
     const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -21,49 +24,33 @@ export async function MapDataCanvas({ mask, data, month = 6, day = 29, layerId =
     const imgRef = useRef<HTMLImageElement>(null)
 
     useEffect(() => {
-        (async () => {
-            try {
-                // const [mask, data] = await Promise.all([
-                //     downloadGeoTIFF(dataLayers.maskUrl),
-                //     downloadGeoTIFF(dataLayers.annualFluxUrl),
-                // ]);
-                const colors = ironPalette;
-                const layer = {
-                    id: layerId,
-                    bounds: mask.bounds,
-                    palette: {
-                        colors: colors,
-                        min: 'Shady',
-                        max: 'Sunny',
-                    },
-                    render: (showRoofOnly: boolean) => [
-                        renderPalette(canvasRef.current!, {
-                            data: data,
-                            mask: showRoofOnly ? mask : undefined,
-                            colors: colors,
-                            min: 0,
-                            max: 1800,
-                        }),
-                    ],
-                };
 
+        console.log(data)
+        const renderLayer = async (layerId: LayerId) => {
+            try {
+                const layer = await getLayer(canvasRef.current!, layerId, data[layerId]);
+                const playAnimation = ['monthlyFlux', 'hourlyShade'].includes(layerId);
+                let showRoofOnly = ['annualFlux', 'monthlyFlux', 'hourlyShade'].includes(layerId);
+                // TODO: Need to feed in months to update hourly map
                 let overlays: any[] = [];
                 const bounds = layer.bounds;
                 console.log('Render layer:', {
                     layerId: layer.id,
-                    showRoofOnly: false,
+                    data: data[layerId],
+                    showRoofOnly: showRoofOnly,
                     month: month,
                     day: day,
                 });
                 overlays.map((overlay) => overlay.setMap(null));
                 overlays = layer
-                    .render(false)
+                    .render(showRoofOnly)
                     // @ts-ignore
                     .map((canvas: any) => new google.maps.GroundOverlay(canvas.toDataURL(), bounds));
             } catch (error) {
                 console.error(error)
             }
-        })()
+        }
+        layerIds.map(renderLayer)
 
         const canvas = canvasRef.current
 
@@ -75,17 +62,106 @@ export async function MapDataCanvas({ mask, data, month = 6, day = 29, layerId =
         if (context === null)
             return
 
-        // Get the `img` from reference
         const image = imgRef.current
 
         if (image === null)
             return
 
-        // Draw the image to the context
         context.drawImage(image, 0, 0)
-    }, [canvasRef, imgRef, mask, data, month, day, layerId, ironPalette])
+    }, [canvasRef, imgRef, data, month, day, layerIds])
 
     return <>
+        {layerIds.map((layerId) => {
+            return <DataLayer key={layerId} layerId={layerId} showRoofOnly={['annualFlux', 'monthlyFlux', 'hourlyShade'].includes(layerId)} data={data[layerId]} month={month} day={day} />
+            })
+        }
+        {/* <canvas
+            ref={canvasRef}
+            style={{
+                border: 'solid 1px black',
+            }}
+        ></canvas>
+        <Image
+            ref={imgRef}
+            src={'/blank.png'}
+            // className='invisible'
+            width={100}
+            height={100}
+            alt=""
+            priority={true}
+            style={{
+                display: 'none',
+            }}
+        /> */}
+        <DropdownMenu>
+            <DropdownMenuContent>
+                <DropdownMenuGroup>
+                    <DropdownMenuItem key="mask">Mask</DropdownMenuItem>
+                    <DropdownMenuItem key="dsm">DSM</DropdownMenuItem>
+                    <DropdownMenuItem key="rgb">RGB</DropdownMenuItem>
+                    <DropdownMenuItem key="annualFlux">Annual Flux</DropdownMenuItem>
+                    <DropdownMenuItem key="monthlyFlux">Monthly Flux</DropdownMenuItem>
+                    <DropdownMenuItem key="hourlyShade">Hourly Shade</DropdownMenuItem>
+                </DropdownMenuGroup>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    </>
+}
+
+async function DataLayer({ layerId, data, showRoofOnly = false, month = 6, day = 29 }) {
+    // Canvas reference
+    const canvasRef = useRef<HTMLCanvasElement>(null)
+
+    // Create imgRef reference
+    const imgRef = useRef<HTMLImageElement>(null)
+
+    useEffect(() => {
+
+        console.log(data)
+        const renderLayer = async (layerId: LayerId) => {
+            try {
+                const layer = await getLayer(canvasRef.current!, layerId, data);
+                // TODO: Need to feed in months to update hourly map
+                let overlays: any[] = [];
+                const bounds = layer.bounds;
+                console.log('Render layer:', {
+                    layerId: layer.id,
+                    data: data,
+                    showRoofOnly: showRoofOnly,
+                    month: month,
+                    day: day,
+                });
+                overlays.map((overlay) => overlay.setMap(null));
+                overlays = layer
+                    .render(showRoofOnly)
+                    // @ts-ignore
+                    .map((canvas: any) => new google.maps.GroundOverlay(canvas.toDataURL(), bounds));
+            } catch (error) {
+                console.error(error)
+            }
+        }
+        renderLayer(layerId)
+
+        const canvas = canvasRef.current
+
+        if (canvas === null)
+            return
+
+        const context = canvas.getContext('2d')
+
+        if (context === null)
+            return
+
+        const image = imgRef.current
+
+        if (image === null)
+            return
+
+        context.drawImage(image, 0, 0)
+    }, [canvasRef, imgRef, data, month, day, layerId])
+
+    return <div> 
+        {/* className="absolute"> */}
         <canvas
             ref={canvasRef}
             style={{
@@ -103,6 +179,6 @@ export async function MapDataCanvas({ mask, data, month = 6, day = 29, layerId =
             style={{
                 display: 'none',
             }}
-        />
-    </>
+        /></div>
 }
+

@@ -88,7 +88,7 @@ export async function fetchBuildingInsights(lat: number, lng: number) {
 export async function fetchGeoDataLayers(
   lat: number,
   lng: number,
-  radius: number = 100
+  radius: number = 150
 ) {
   try {
     const params = new URLSearchParams()
@@ -97,7 +97,7 @@ export async function fetchGeoDataLayers(
     params.append('location.longitude', lng.toString())
     params.append('radiusMeters', radius.toString())
     params.append('view', 'FULL_LAYERS')
-    params.append('requiredQuality', 'MEDIUM')
+    params.append('requiredQuality', 'HIGH')
     params.append('exactQualityRequired', 'true')
     params.append('pixelSizeMeters', '0.5')
     const url = `https://solar.googleapis.com/v1/dataLayers:get?${params.toString()}`
@@ -179,3 +179,6 @@ export async function downloadGeoTIFF(url: string): Promise<GeoTiff> {
     }
   }
 }
+// export async function downloadDataLayers(layer: DataLayersResponse) {
+
+// }

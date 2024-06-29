@@ -31,6 +31,18 @@ export interface DataLayersResponse {
   imageryQuality: 'HIGH' | 'MEDIUM' | 'LOW'
 }
 
+export interface DataLayers {
+  imageryDate: Date
+  imageryProcessedDate: Date
+  dsm: GeoTiff
+  rgb: GeoTiff
+  mask: GeoTiff
+  annualFlux: GeoTiff
+  monthlyFlux: GeoTiff
+  hourlyShade: GeoTiff[]
+  imageryQuality: 'HIGH' | 'MEDIUM' | 'LOW'
+}
+
 export interface Bounds {
   north: number
   south: number
@@ -140,6 +152,15 @@ export type LayerId =
   | 'monthlyFlux'
   | 'hourlyShade'
 
+export enum LayerIdOption {
+    MASK = 'mask',
+    DSM = 'dsm',
+    RGB = 'rgb',
+    ANNUAL_FLUX = 'annualFlux',
+    MONTHLY_FLUX = 'monthlyFlux',
+    HOURLY_SHADE = 'hourlyShade'
+}
+
 // [START solar_api_building_insights]
 /**
  * Fetches the building insights information from the Solar API.
@@ -239,7 +260,7 @@ export interface GeoTiff {
  */
 export async function downloadGeoTIFF(
   url: string,
-  apiKey: string
+  apiKey: string = process.env.GOOGLE_API_KEY ?? ''
 ): Promise<GeoTiff> {
   console.log(`Downloading data layer: ${url}`)
 

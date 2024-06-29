@@ -43,8 +43,8 @@ import fetchPrograms from '@/lib/chat/tools/fetchPrograms'
 import fetchIncentives from '@/lib/chat/tools/fetchIncentives'
 import { fetchDSIRE } from '@/lib/chat/tools/fetchPinecone'
 import { kv } from '@vercel/kv'
-import { renderPalette } from './tools/fetchGeoData/visualize'
 import { MapDataCanvas } from '@/components/data-layer'
+import { DataLayers, LayerId, LayerIdOption } from './tools/fetchGeoData/solar'
 
 async function confirmPurchase(symbol: string, price: number, amount: number) {
   'use server'
@@ -433,33 +433,88 @@ async function submitUserMessage(content: string) {
         description: 'calculates the amount of solar power a user can generate based on their location',
         parameters: z.object({
           address: z.string().optional().describe('The address to calculate solar power for'),
+          mapType: z.nativeEnum(LayerIdOption).default(LayerIdOption.MONTHLY_FLUX).describe('The type of map to display')
         }),
-        generate: async function* ({ address }) {
+        generate: async function* ({ address, mapType }) {
           yield (
             <BotCard>
-              <p>Calculating solar cost...</p>
+              <p>Generating {mapType} map for {address}</p>
             </BotCard>
           )
 
           let mask;
-          let data;
+          const layerIds: LayerId[] = ['rgb', 'annualFlux'];
+          let inputTiffs: Record<LayerId, any> = {};
 
           try {
             const storedData = await getStoredData(['address']);
-            const { geoData, dataLayers } = await fetchCoordinates(address ?? storedData['address']);
-            [mask, data] = await Promise.all([
-              downloadGeoTIFF(dataLayers.maskUrl),
-              downloadGeoTIFF(dataLayers.annualFluxUrl),
-            ]);
+            const { dataLayers } = await fetchCoordinates(address ?? storedData['address']);
+
+            // const allLayers: DataLayers = {
+            //   dsm: await downloadGeoTIFF(dataLayers.dsmUrl),
+            //   rgb: await downloadGeoTIFF(dataLayers.rgbUrl),
+            //   mask: await downloadGeoTIFF(dataLayers.maskUrl),
+            //   annualFlux: await downloadGeoTIFF(dataLayers.annualFluxUrl),
+            //   monthlyFlux: await downloadGeoTIFF(dataLayers.monthlyFluxUrl),
+            //   hourlyShade: await Promise.all(
+            //     dataLayers.hourlyShadeUrls.map((url: string) => downloadGeoTIFF(url))
+            //   ),
+            //   ...dataLayers
+            // }
+
+            const getLayers: Record<LayerId, () => any> = {
+              mask: async () => {
+                return await downloadGeoTIFF(dataLayers.maskUrl);
+              },
+              dsm: async () => {
+                return await Promise.all([
+                  downloadGeoTIFF(dataLayers.maskUrl),
+                  downloadGeoTIFF(dataLayers.dsmUrl)
+                ]);
+              },
+              rgb: async () => {
+                return await Promise.all([
+                  downloadGeoTIFF(dataLayers.maskUrl),
+                  downloadGeoTIFF(dataLayers.rgbUrl)
+                ]);
+              },
+              annualFlux: async () => {
+                return await Promise.all([
+                  downloadGeoTIFF(dataLayers.maskUrl),
+                  downloadGeoTIFF(dataLayers.annualFluxUrl)
+                ]);
+              },
+              monthlyFlux: async () => {
+                return Promise.all([
+                  downloadGeoTIFF(dataLayers.maskUrl),
+                  downloadGeoTIFF(dataLayers.monthlyFluxUrl)
+                ]);
+              },
+              hourlyShade: async () => {
+                return Promise.all([
+                  downloadGeoTIFF(dataLayers.maskUrl),
+                  ...dataLayers.hourlyShadeUrls.map((url: string) => downloadGeoTIFF(url))
+                ]);
+              },
+            }
+
+            await Promise.all(layerIds.map(async (layerId) => {
+              inputTiffs[layerId] = await getLayers[layerId]();
+            }));
+            // for (const layerId of Object.values(LayerIdOption)) {
+            //   inputTiffs[layerId] = getLayers[layerId]();
+            // }
+
           } catch (error) {
             // Handle any errors here
             console.error('Failed to fetch coordinates:', error);
           }
 
           return (
+            // TODO use list dropdown to select layer
             <BotCard>
               {/* pass in solar cost into UI element */}
-              <MapDataCanvas mask={mask} data={data} />
+              <MapDataCanvas mask={mask} data={inputTiffs} layerIds={layerIds} />
             </BotCard>
           )
         }
