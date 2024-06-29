@@ -42,6 +42,10 @@ export function formatDate(input: string | number | Date): string {
   })
 }
 
+export function camelCase(input: string): string {
+  return input.replace(/([A-Z])/g, ' $1').toLowerCase()
+}
+
 export const formatNumber = (value: number) =>
   new Intl.NumberFormat('en-US', {
     style: 'currency',
