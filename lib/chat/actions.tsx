@@ -37,8 +37,8 @@ import { Chat, Message, State, IncentiveCategory, Sector } from '@/lib/types'
 import { auth } from '@/auth'
 
 import systemPrompt from '@/lib/chat/systemPrompt'
-import { requestELISchema } from '@/lib/chat/schema'
 import { downloadGeoTIFF, fetchCoordinates } from '@/lib/chat/tools/fetchGeoData'
+import { RecommendationItemSchema, RecommendationOptionSchema, requestELISchema } from '@/lib/chat/schema'
 import fetchPrograms from '@/lib/chat/tools/fetchPrograms'
 import fetchIncentives from '@/lib/chat/tools/fetchIncentives'
 import { fetchDSIRE } from '@/lib/chat/tools/fetchPinecone'
@@ -46,6 +46,9 @@ import { kv } from '@vercel/kv'
 import { MapDataCanvas } from '@/components/data-layer'
 import { DataLayers, LayerId, LayerIdOption } from './tools/fetchGeoData/solar'
 import { SolarStats } from '@/components/solar-stats'
+import { ChartSkeleton } from '@/components/charts/chart-skeleton'
+import { ChartSavings } from '@/components/charts'
+import { streamText } from 'ai'
 
 async function confirmPurchase(symbol: string, price: number, amount: number) {
   'use server'
@@ -128,19 +131,19 @@ async function getStoredData(keys: string[]) {
 }
 
 // Helper function to populate unfilled keys
-function populateUnfilledKeys(query: z.infer<typeof requestELISchema>, storedData: Record<string, any>) {
-  const populatedQuery = { ...query }
+// function populateUnfilledKeys(query: z.infer<typeof requestELISchema>, storedData: Record<string, any>) {
+//   const populatedQuery = { ...query }
 
-  for (const [key, schema] of Object.entries(requestELISchema.shape)) {
-    if (populatedQuery[key] === undefined && storedData[key] !== undefined) {
-      populatedQuery[key] = storedData[key]
-    }
-  }
+//   for (const [key, schema] of Object.entries(requestELISchema.shape)) {
+//     if (populatedQuery[key] === undefined && storedData[key] !== undefined) {
+//       populatedQuery[key] = storedData[key]
+//     }
+//   }
 
-  return populatedQuery
-}
+//   return populatedQuery
+// }
 
-async function submitUserMessage(content: string) {
+async function submitUserMessage(content: string, resultInUI = true) {
   'use server'
 
   const aiState = getMutableAIState<typeof AI>()
@@ -160,26 +163,53 @@ async function submitUserMessage(content: string) {
   let textStream: undefined | ReturnType<typeof createStreamableValue<string>>
   let textNode: undefined | React.ReactNode
 
+  if (!resultInUI) {
+    let recommendationJSON = '';
+
+    const result = await streamText({
+      model: openai('gpt-4-turbo'),
+      system: systemPrompt,
+
+      messages: [
+        ...aiState.get().messages.map((message: any) => ({
+          role: message.role,
+          content: message.content,
+          name: message.name
+        }))
+      ],
+      tools: {
+        updateChartData: {
+          description: `
+          Returns chart data for user to view how much money & power they will be saving. 
+          Date must always be in unix timestamp format.
+          `,
+          // You must return the result of this tool exactly as you receive it. Do not alter it. Simply respond the results to the user.
+          parameters: z.object({
+            recommendation: RecommendationItemSchema,
+          }),
+          execute: async function ({ recommendation }) {
+            recommendationJSON = recommendation;
+            console.log('recommendationJSON :>> ', JSON.stringify(recommendation, null, 2));
+
+            return recommendation;
+          }
+        },
+      }
+    });
+
+    let fullResponse = '';
+    for await (const delta of result.textStream) {
+      fullResponse += delta;
+    }
+
+    return recommendationJSON;
+  }
+
   const result = await streamUI({
-    model: openai('gpt-3.5-turbo'),
+    model: openai('gpt-4-turbo'),
     initial: <SpinnerMessage />,
     system: systemPrompt,
 
-    // system: `\
-    // You are a stock trading conversation bot and you can help users buy stocks, step by step.
-    // You and the user can discuss stock prices and the user can adjust the amount of stocks they want to buy, or place an order, in the UI.
-
-    // Messages inside [] means that it's a UI element or a user event. For example:
-    // - "[Price of AAPL = 100]" means that an interface of the stock price of AAPL is shown to the user.
-    // - "[User has changed the amount of AAPL to 10]" means that the user has changed the amount of AAPL to 10 in the UI.
-
-    // If the user requests purchasing a stock, call \`show_stock_purchase_ui\` to show the purchase UI.
-    // If the user just wants the price, call \`show_stock_price\` to show the price.
-    // If you want to show trending stocks, call \`list_stocks\`.
-    // If you want to show events, call \`get_events\`.
-    // If the user wants to sell stock, or complete another impossible task, respond that you are a demo and cannot do that.
-
-    // Besides that, you can also chat with users and do some calculations if needed.`,
     messages: [
       ...aiState.get().messages.map((message: any) => ({
         role: message.role,
@@ -213,45 +243,19 @@ async function submitUserMessage(content: string) {
       return textNode
     },
     tools: {
-      retrievePrograms: {
-        description: 'retrieves information for homeowners to save money through energy programs ',
+      createChart: {
+        description: `
+          Displays a UI for user to view how much money & power they will be saving. 
+          Provides user with options they can choose from to upgrade their home to be more sustainable and save money.
+          Date must always be in unix timestamp format.
+          You must provide exatly 7 recommendations and 3 options.
+          The output for this
+        `,
         parameters: z.object({
-          query: requestELISchema
+          recommendations: z.array(RecommendationItemSchema),
+          options: z.array(RecommendationOptionSchema)
         }),
-        generate: async function* ({ query }) {
-
-          // NOTE: check compatibility of query (e.g. zipcode 5 characters)
-          yield (
-            <BotCard>
-              <p>Getting programs response</p>
-            </BotCard>
-          )
-
-          const storedData = await getStoredData([
-            'address',
-            'property_type',
-            'household_income',
-            'household_size',
-            'tax_filing_status',
-            'utility_customer_requirements',
-            'upgrade_measures',
-            'metadata'
-          ])
-
-          console.log(storedData)
-          const populatedQuery = populateUnfilledKeys(query, storedData)
-
-          console.log(populatedQuery)
-
-
-          let programsData: any = null;
-          try {
-            programsData = await fetchPrograms(populatedQuery);
-            // Use programsData here
-          } catch (error) {
-            // Handle any errors here
-            console.error('Failed to fetch programs:', error);
-          }
+        generate: async function* ({ recommendations, options }) {
 
           const toolCallId = nanoid()
 
@@ -265,9 +269,9 @@ async function submitUserMessage(content: string) {
                 content: [
                   {
                     type: 'tool-call',
-                    toolName: 'retrievePrograms',
+                    toolName: 'createChart',
                     toolCallId,
-                    args: { query }
+                    args: { recommendations, options }
                   }
                 ]
               },
@@ -277,9 +281,9 @@ async function submitUserMessage(content: string) {
                 content: [
                   {
                     type: 'tool-result',
-                    toolName: 'retrievePrograms',
+                    toolName: 'createChart',
                     toolCallId,
-                    result: programsData
+                    result: { recommendations, options }
                   }
                 ]
               }
@@ -288,146 +292,94 @@ async function submitUserMessage(content: string) {
 
           return (
             <BotCard>
-              {/* pass in programsData into UI element */}
-              <p>programs Data</p>
+              <ChartSavings props={{ recommendations, options }} />
             </BotCard>
           )
         }
       },
-      retrieveIncentives: {
-        description: 'retrieves information for homeowners to make money through energy incentives ',
-        parameters: z.object({
-          query: requestELISchema
-        }),
-        generate: async function* ({ query }) {
-          yield (
-            <BotCard>
-              <p>Getting incentive response</p>
-            </BotCard>
-          )
+      // retrievePrograms: {
+      //   description: 'retrieves information for homeowners to save money through energy programs ',
+      //   parameters: z.object({
+      //     query: requestELISchema
+      //   }),
+      //   generate: async function* ({ query }) {
 
-          await sleep(1000)
+      //     // NOTE: check compatibility of query (e.g. zipcode 5 characters)
+      //     yield (
+      //       <BotCard>
+      //         <p>Getting programs response</p>
+      //       </BotCard>
+      //     )
 
-          let incentivesData: any = null;
-          try {
-            incentivesData = await fetchIncentives(query);
-            // Use programsData here
-          } catch (error) {
-            // Handle any errors here
-            console.error('Failed to fetch incentives:', error);
-          }
+      //     await sleep(1000)
 
-          const toolCallId = nanoid()
+      //     const storedData = await getStoredData([
+      //       'address',
+      //       'property_type',
+      //       'household_income',
+      //       'household_size',
+      //       'tax_filing_status',
+      //       'utility_customer_requirements',
+      //       'upgrade_measures',
+      //       'metadata'
+      //     ])
 
-          aiState.done({
-            ...aiState.get(),
-            messages: [
-              ...aiState.get().messages,
-              {
-                id: nanoid(),
-                role: 'assistant',
-                content: [
-                  {
-                    type: 'tool-call',
-                    toolName: 'retrieveIncentives',
-                    toolCallId,
-                    args: { query }
-                  }
-                ]
-              },
-              {
-                id: nanoid(),
-                role: 'tool',
-                content: [
-                  {
-                    type: 'tool-result',
-                    toolName: 'retrieveIncentives',
-                    toolCallId,
-                    result: incentivesData
-                  }
-                ]
-              }
-            ]
-          })
+      //     console.log(storedData)
+      //     const populatedQuery = populateUnfilledKeys(query, storedData)
 
-          return (
-            <BotCard>
-              {/* pass in incentives into UI element */}
-              <p>Incentives</p>
-            </BotCard>
-          )
-        }
-      },
-      queryDSIRE: {
-        description: 'query to a vector database of legislation regarding state, federal, and municipal laws from DSIRE',
-        parameters: z.object({
-          query: z.string().describe('The query text provided to Pinecone to search for various laws'),
-          state: z.nativeEnum(State).optional().describe('The state to filter the results'),
-          sector: z.nativeEnum(Sector).optional().describe('The sector to filter the results'),
-          category: z.nativeEnum(IncentiveCategory).optional().describe('The category to filter the results')
-        }),
-        generate: async function* ({ query, state, sector, category }) {
-          yield (
-            <BotCard>
-              <p>Getting DSIRE response</p>
-            </BotCard>
-          )
+      //     console.log(populatedQuery)
 
-          await sleep(1000)
 
-          let matches: any = null;
-          try {
-            matches = await fetchDSIRE(query, state, sector, category);
-            console.log('matches:', typeof matches, matches)
-          } catch (error) {
-            // Handle any errors here
-            console.error('Failed to fetch DSIRE data:', error);
-          }
+      //     let programsData: any = null;
+      //     try {
+      //       programsData = await fetchPrograms(populatedQuery);
+      //       // Use programsData here
+      //     } catch (error) {
+      //       // Handle any errors here
+      //       console.error('Failed to fetch programs:', error);
+      //     }
 
-          const toolCallId = nanoid()
-          const DSIREData = matches['matches'].map(match => match.metadata);
-          // console.log('DSIREData:', DSIREData)
-          // source .env.local
+      //     const toolCallId = nanoid()
 
-          aiState.done({
-            ...aiState.get(),
-            messages: [
-              ...aiState.get().messages,
-              {
-                id: nanoid(),
-                role: 'assistant',
-                content: [
-                  {
-                    type: 'tool-call',
-                    toolName: 'queryDSIRE',
-                    toolCallId,
-                    args: { query }
-                  }
-                ]
-              },
-              {
-                id: nanoid(),
-                role: 'tool',
-                content: [
-                  {
-                    type: 'tool-result',
-                    toolName: 'queryDSIRE',
-                    toolCallId,
-                    result: DSIREData
-                  }
-                ]
-              }
-            ]
-          })
+      //     aiState.done({
+      //       ...aiState.get(),
+      //       messages: [
+      //         ...aiState.get().messages,
+      //         {
+      //           id: nanoid(),
+      //           role: 'assistant',
+      //           content: [
+      //             {
+      //               type: 'tool-call',
+      //               toolName: 'retrievePrograms',
+      //               toolCallId,
+      //               args: { query }
+      //             }
+      //           ]
+      //         },
+      //         {
+      //           id: nanoid(),
+      //           role: 'tool',
+      //           content: [
+      //             {
+      //               type: 'tool-result',
+      //               toolName: 'retrievePrograms',
+      //               toolCallId,
+      //               result: programsData
+      //             }
+      //           ]
+      //         }
+      //       ]
+      //     })
 
-          return (
-            <BotCard>
-              {/* pass in DSIRE data into UI element */}
-              <p>DSIRE data retrieved and analyzed</p>
-            </BotCard>
-          )
-        }
-      },
+      //     return (
+      //       <BotCard>
+      //         {/* pass in DSIRE data into UI element */}
+      //         <p>DSIRE data retrieved and analyzed</p>
+      //       </BotCard>
+      //     )
+      //   }
+      // },
       calculateSolar: {
         description: 'calculates the amount of solar power a user can generate based on their location',
         parameters: z.object({
@@ -556,63 +508,230 @@ async function submitUserMessage(content: string) {
           )
         }
       },
-      storeData: {
-        description: 'stores key value pair for longterm memory',
-        parameters: z.object({
-          key: z.enum([
-            'address',
-            'household_income',
-            'household_size',
-            'tax_filing_status',
-            'property_type',
-            'upgrade_measures',
-            'metadata'
-          ]).describe('The key to store the data'),
-          value: z.union([
-            z.object({
-              line1: z.string().optional(),
-              line2: z.string().optional(),
-              city: z.string().optional(),
-              state: z.string().optional(),
-              zipcode: z.string() // Kept zipcode as required
-            }),
-            z.number(),
-            z.string(),
-            z.array(z.object({
-              measure: z.string(),
-              estimated_min_cost: z.number()
-            })),
-            z.object({
-              external_id: z.string().optional() // Assuming you want this optional as well
-            })
-          ]).describe('The value to store')
-        }),
-        generate: async function* ({ key, value }) {
-          yield `Storing ${key} as ${value}...`;
+      // storeData: {
+      //   description: 'stores key value pair for longterm memory',
+      //   parameters: z.object({
+      //     key: z.enum([
+      //       'address',
+      //       'household_income',
+      //       'household_size',
+      //       'tax_filing_status',
+      //       'property_type',
+      //       'upgrade_measures',
+      //       'metadata'
+      //     ]).describe('The key to store the data'),
+      //     value: z.union([
+      //       z.object({
+      //         line1: z.string().optional(),
+      //         line2: z.string().optional(),
+      //         city: z.string().optional(),
+      //         state: z.string().optional(),
+      //         zipcode: z.string() // Kept zipcode as required
+      //       }),
+      //       z.number(),
+      //       z.string(),
+      //       z.array(z.object({
+      //         measure: z.string(),
+      //         estimated_min_cost: z.number()
+      //       })),
+      //       z.object({
+      //         external_id: z.string().optional() // Assuming you want this optional as well
+      //       })
+      //     ]).describe('The value to store')
+      //   }),
+      //   generate: async function* ({ key, value }) {
+      //     yield `Storing ${key} as ${value}...`;
 
-          await sleep(1000)
+      //     await sleep(1000)
 
-          try {
-            await kv.set(key, value, { ex: 100, nx: true });
-          } catch (error) {
-            console.error('Failed to set value:', error);
-          }
+      //     try {
+      //       await kv.set(key, value, { ex: 100, nx: true });
+      //     } catch (error) {
+      //       console.error('Failed to set value:', error);
+      //     }
 
-          try {
-            const storedValue = await kv.get(key);
-            console.log('Successfully stored value:', storedValue);
-          } catch (error) {
-            // Handle errors
-          }
+      //     try {
+      //       const storedValue = await kv.get(key);
+      //       console.log('Successfully stored value:', storedValue);
+      //     } catch (error) {
+      //       // Handle errors
+      //     }
 
-          return (
-            <BotCard>
-              {/* pass in DSIRE data into UI element */}
-              <p>Stored {key} according to input</p>
-            </BotCard>
-          )
-        }
-      }
+      //     let incentivesData: any = null;
+      //     try {
+      //       incentivesData = await fetchIncentives(query);
+      //       // Use programsData here
+      //     } catch (error) {
+      //       // Handle any errors here
+      //       console.error('Failed to fetch incentives:', error);
+      //     }
+
+      //     const toolCallId = nanoid()
+
+      //     aiState.done({
+      //       ...aiState.get(),
+      //       messages: [
+      //         ...aiState.get().messages,
+      //         {
+      //           id: nanoid(),
+      //           role: 'assistant',
+      //           content: [
+      //             {
+      //               type: 'tool-call',
+      //               toolName: 'retrieveIncentives',
+      //               toolCallId,
+      //               args: { query }
+      //             }
+      //           ]
+      //         },
+      //         {
+      //           id: nanoid(),
+      //           role: 'tool',
+      //           content: [
+      //             {
+      //               type: 'tool-result',
+      //               toolName: 'retrieveIncentives',
+      //               toolCallId,
+      //               result: incentivesData
+      //             }
+      //           ]
+      //         }
+      //       ]
+      //     })
+
+      //     return (
+      //       <BotCard>
+      //         {/* pass in incentives into UI element */}
+      //         <h4>Incentives</h4>
+      //         <p>{JSON.stringify(incentivesData, null, 4)}</p>
+      //       </BotCard>
+      //     )
+      //   }
+      // },
+      // queryDSIRE: {
+      //   description: 'query to a vector database of legislation regarding state, federal, and municipal laws from DSIRE',
+      //   parameters: z.object({
+      //     query: z.string().describe('The query text provided to Pinecone to search for various laws')
+      //   }),
+      //   generate: async function* ({ query }) {
+      //     yield (
+      //       <BotCard>
+      //         <p>Getting DSIRE response</p>
+      //       </BotCard>
+      //     )
+
+      //     await sleep(1000)
+
+      //     let matches: any = null;
+      //     try {
+      //       matches = await fetchDSIRE(query);
+      //       console.log('matches:', typeof matches, matches)
+      //     } catch (error) {
+      //       // Handle any errors here
+      //       console.error('Failed to fetch DSIRE data:', error);
+      //     }
+
+      //     const toolCallId = nanoid()
+      //     const DSIREData = matches['matches'].map(match => match.metadata);
+      //     // console.log('DSIREData:', DSIREData)
+      //     // source .env.local
+
+      //     aiState.done({
+      //       ...aiState.get(),
+      //       messages: [
+      //         ...aiState.get().messages,
+      //         {
+      //           id: nanoid(),
+      //           role: 'assistant',
+      //           content: [
+      //             {
+      //               type: 'tool-call',
+      //               toolName: 'queryDSIRE',
+      //               toolCallId,
+      //               args: { query }
+      //             }
+      //           ]
+      //         },
+      //         {
+      //           id: nanoid(),
+      //           role: 'tool',
+      //           content: [
+      //             {
+      //               type: 'tool-result',
+      //               toolName: 'queryDSIRE',
+      //               toolCallId,
+      //               result: DSIREData
+      //             }
+      //           ]
+      //         }
+      //       ]
+      //     })
+
+      //     return (
+      //       <BotCard>
+      //         {/* pass in DSIRE data into UI element */}
+      //         <p>DSIRE data retrieved and analyzed</p>
+      //       </BotCard>
+      //     )
+      //   }
+      // },
+      // storeData: {
+      //   description: 'stores key value pair for longterm memory',
+      //   parameters: z.object({
+      //     key: z.enum([
+      //       'address',
+      //       'household_income',
+      //       'household_size',
+      //       'tax_filing_status',
+      //       'property_type',
+      //       'upgrade_measures',
+      //       'metadata'
+      //     ]).describe('The key to store the data'),
+      //     value: z.union([
+      //       z.object({
+      //         line1: z.string().optional(),
+      //         line2: z.string().optional(),
+      //         city: z.string().optional(),
+      //         state: z.string().optional(),
+      //         zipcode: z.string() // Kept zipcode as required
+      //       }),
+      //       z.number(),
+      //       z.string(),
+      //       z.array(z.object({
+      //         measure: z.string(),
+      //         estimated_min_cost: z.number()
+      //       })),
+      //       z.object({
+      //         external_id: z.string().optional() // Assuming you want this optional as well
+      //       })
+      //     ]).describe('The value to store')
+      //   }),
+      //   generate: async function* ({ key, value }) {
+      //     yield `Storing ${key} as ${value}...`;
+
+      //     await sleep(1000)
+
+      //     try {
+      //       await kv.set(key, value, { ex: 100, nx: true });
+      //     } catch (error) {
+      //       console.error('Failed to set value:', error);
+      //     }
+
+      //     try {
+      //       const storedValue = await kv.get(key);
+      //       console.log('Successfully stored value:', storedValue);
+      //     } catch (error) {
+      //       // Handle errors
+      //     }
+
+      //     return (
+      //       <BotCard>
+      //         {/* pass in DSIRE data into UI element */}
+      //         <p>Stored {key} according to input</p>
+      //       </BotCard>
+      //     )
+      //   }
+      // }
       // listStocks: {
       //   description: 'List three imaginary stocks that are trending.',
       //   parameters: z.object({
@@ -1012,15 +1131,10 @@ export const getUIStateFromAIState = (aiState: Chat) => {
                 {/* @ts-expect-error */}
                 <Events props={tool.result} />
               </BotCard>
-            ) : tool.toolName === 'retrievePrograms' ? (
+            ) : tool.toolName === 'createChart' ? (
               <BotCard>
                 {/* @ts-expect-error */}
-                <p>programs</p>
-              </BotCard>
-            ) : tool.toolName === 'retrieveIncentives' ? (
-              <BotCard>
-                {/* @ts-expect-error */}
-                <p>incentives</p>
+                <ChartSavings props={tool.result} />
               </BotCard>
             ) : null
           })

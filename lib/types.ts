@@ -17,8 +17,8 @@ export interface Chat extends Record<string, any> {
 export type ServerActionResult<Result> = Promise<
   | Result
   | {
-      error: string
-    }
+    error: string
+  }
 >
 
 export interface Session {
@@ -106,3 +106,9 @@ export enum State {
   WI = 'Wisconsin',
   WY = 'Wyoming'
 }
+export type CompStatusData<T = any | any[]> = {
+  data?: T;
+  isLoading?: boolean;
+  isError?: boolean;
+  errorMessage?: string;
+};
